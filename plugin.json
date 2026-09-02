@@ -1,0 +1,42 @@
+{
+  "main": "index.html",
+  "logo": "logo.png",
+  "preload": "preload.js",
+  "pluginSetting": {
+    "height": 560
+  },
+  "features": [
+    {
+      "code": "timestamp-tool",
+      "explain": "Timestamp converter with second and millisecond modes, timezone support, and bilingual interface",
+      "cmds": ["时间戳", "时间戳转换", "timestamp", "ts"]
+    },
+    {
+      "code": "timestamp-regex",
+      "explain": "Convert between timestamps and dates",
+      "cmds": [
+        {
+          "type": "regex",
+          "label": "秒级时间戳转日期",
+          "match": "/^\\d{10}$/",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        {
+          "type": "regex",
+          "label": "毫秒时间戳转日期",
+          "match": "/^\\d{13}$/",
+          "minLength": 13,
+          "maxLength": 13
+        },
+        {
+          "type": "regex",
+          "label": "日期转秒级时间戳",
+          "match": "/^\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}([ T]\\d{1,2}:\\d{1,2}(:\\d{1,2})?)?$/",
+          "minLength": 10,
+          "maxLength": 19
+        }
+      ]
+    }
+  ]
+}

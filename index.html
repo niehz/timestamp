@@ -1,0 +1,150 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>时间戳转换器 / Timestamp Converter</title>
+  <link rel="stylesheet" href="index.css?v=30">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="tabs">
+        <button class="tab active" data-tab="sec">秒级</button>
+        <button class="tab" data-tab="ms">毫秒级</button>
+      </div>
+      <div class="header-right">
+        <button class="lang-btn" id="btn-lang">EN</button>
+        <span class="build-tag" id="build-tag"></span>
+        <div class="tz-group">
+          <label for="timezone">时区</label>
+          <select id="timezone"></select>
+        </div>
+      </div>
+    </header>
+
+    <section class="main-grid">
+      <div class="cards">
+        <div class="card">
+          <div class="card-title" data-i18n="dateToTs">日期 → 时间戳</div>
+          <div class="card-inner">
+            <div class="left-col">
+              <div class="date-field" id="date-field">
+                <input id="date-input" type="text" spellcheck="false" autocomplete="off"
+                       placeholder="YYYY-MM-DD">
+                <input id="time-input" type="text" spellcheck="false" autocomplete="off"
+                       placeholder="HH:mm:ss">
+                <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
+                       placeholder=".ms" style="display:none">
+                <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
+                <select id="input-tz" title="输入时区"></select>
+                <div class="date-suggest" id="date-suggest"></div>
+                <div class="cal-popover" id="calendar">
+                  <div class="cal-main">
+                    <div class="cal-left">
+                      <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
+                      <div class="cal-head">
+                        <button class="cal-nav" id="cal-prev" title="上一年">◀</button>
+                        <button class="cal-title-btn" id="cal-title" title="点击切换 年月">2026年 8月</button>
+                        <button class="cal-nav" id="cal-next" title="下一年">▶</button>
+                      </div>
+                      <div class="cal-body" id="cal-body-day">
+                        <div class="cal-week">
+                          <span data-w="Su">日</span><span data-w="Mo">一</span><span data-w="Tu">二</span><span data-w="We">三</span><span data-w="Th">四</span><span data-w="Fr">五</span><span data-w="Sa">六</span>
+                        </div>
+                        <div class="cal-grid" id="cal-grid"></div>
+                      </div>
+                      <div class="cal-body" id="cal-body-month" style="display:none">
+                        <div class="cal-months" id="cal-months"></div>
+                      </div>
+                      <div class="cal-body" id="cal-body-year" style="display:none">
+                        <div class="cal-year-head" id="cal-year-head"></div>
+                        <div class="cal-years" id="cal-years"></div>
+                      </div>
+                    </div>
+                    <div class="cal-right">
+                      <input id="cal-time-input" class="cal-time-input" type="text" spellcheck="false" autocomplete="off" inputmode="numeric" placeholder="HH:MM:SS">
+                      <div class="cal-time-wheels">
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="hh">0</button>
+                          <div class="wheel" id="wheel-hh"></div>
+                        </div>
+                        <span class="sep">:</span>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="mm">0</button>
+                          <div class="wheel" id="wheel-mm"></div>
+                        </div>
+                        <span class="sep">:</span>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ss">0</button>
+                          <div class="wheel" id="wheel-ss"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ms">0</button>
+                          <div class="wheel ms-wheel" id="wheel-ms" style="display:none"></div>
+                        </div>
+                      </div>
+                      <div class="cal-time-actions">
+                        <button class="btn-primary cal-now" id="cal-now">此刻</button>
+                        <button class="btn-primary cal-ok" id="cal-ok" data-i18n="ok">确定</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="input-hint" id="d2t-hint"></div>
+            </div>
+            <div class="right-col">
+              <div class="result-block" id="d2t-result">
+                <div class="result-value" id="d2t-val">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" data-i18n="tsToDate">时间戳 → 日期</div>
+          <div class="card-inner">
+            <div class="left-col">
+              <div class="input-box">
+                <input id="ts-input" type="text" spellcheck="false">
+              </div>
+              <div class="input-hint" id="t2d-hint"></div>
+            </div>
+            <div class="right-col">
+              <div class="result-block" id="t2d-result">
+                <div class="result-value" id="t2d-val">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="now-section">
+      <div class="now-header">
+        <span data-i18n="currentTime">当前时间</span>
+        <span class="live-dot" id="live-dot"></span>
+        <button class="btn-pause" id="btn-pause" data-i18n="pause">暂停</button>
+      </div>
+      <div class="now-grid">
+        <div class="now-item clickable" data-copy-val>
+          <span class="now-label" data-i18n="localTime">本地时间</span>
+          <span class="now-value mono" id="now-date">—</span>
+        </div>
+        <div class="now-item clickable" id="now-sec-item" data-copy-val>
+          <span class="now-label" data-i18n="secTs">秒级时间戳</span>
+          <span class="now-value mono" id="now-sec">—</span>
+        </div>
+        <div class="now-item clickable" id="now-ms-item" data-copy-val>
+          <span class="now-label" data-i18n="msTs">毫秒级时间戳</span>
+          <span class="now-value mono" id="now-ms">—</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="index.js?v=20"></script>
+</body>
+</html>
