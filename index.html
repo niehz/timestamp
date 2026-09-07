@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>时间戳转换器 / Timestamp Converter</title>
-  <link rel="stylesheet" href="index.css?v=30">
+  <link rel="stylesheet" href="index.css?v=1788748117810">
 </head>
 <body>
   <div class="app">
@@ -16,6 +16,7 @@
       <div class="header-right">
         <button class="lang-btn" id="btn-lang">EN</button>
         <span class="build-tag" id="build-tag"></span>
+        <button class="tz-config-btn" id="tz-config-btn" title="配置时区">⚙️</button>
         <div class="tz-group">
           <label for="timezone">时区</label>
           <select id="timezone"></select>
@@ -29,17 +30,17 @@
           <div class="card-title" data-i18n="dateToTs">日期 → 时间戳</div>
           <div class="card-inner">
             <div class="left-col">
-              <div class="date-field" id="date-field">
-                <input id="date-input" type="text" spellcheck="false" autocomplete="off"
-                       placeholder="YYYY-MM-DD">
-                <input id="time-input" type="text" spellcheck="false" autocomplete="off"
-                       placeholder="HH:mm:ss">
-                <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
-                       placeholder=".ms" style="display:none">
-                <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
-                <select id="input-tz" title="输入时区"></select>
-                <div class="date-suggest" id="date-suggest"></div>
-                <div class="cal-popover" id="calendar">
+              <div class="date-input-row">
+                <div class="date-field" id="date-field">
+                  <input id="date-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="YYYY-MM-DD">
+                  <input id="time-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="HH:mm:ss">
+                  <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder=".ms" style="display:none">
+                  <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
+                  <div class="date-suggest" id="date-suggest"></div>
+                  <div class="cal-popover" id="calendar">
                   <div class="cal-main">
                     <div class="cal-left">
                       <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
@@ -91,6 +92,17 @@
                     </div>
                   </div>
                 </div>
+                              </div>
+                <div class="custom-tz-selector" title="双滚轮时区选择器：滚轮切换小时/分钟，点击?重置为全局时区">
+                  <div class="tz-hour-wheel" id="tz-hour-wheel" title="小时滚轮：滚轮切换时区偏移小时，点击后可滚动">
+                    <div class="wheel-content"></div>
+                  </div>
+                  <div class="tz-min-wheel" id="tz-min-wheel" title="分钟滚轮：滚轮切换时区偏移分钟，点击后可滚动">
+                    <div class="wheel-content"></div>
+                  </div>
+                  <div class="tz-reset-btn" id="tz-reset-btn" title="重置为全局时区">⟲</div>
+                  <select id="input-tz" title="输入时区" style="display: none;"></select>
+                </div>
               </div>
               <div class="input-hint" id="d2t-hint"></div>
             </div>
@@ -98,6 +110,7 @@
               <div class="result-block" id="d2t-result">
                 <div class="result-value" id="d2t-val">—</div>
               </div>
+              <div class="input-hint" id="d2t-result-hint"></div>
             </div>
           </div>
         </div>
@@ -114,37 +127,127 @@
             <div class="right-col">
               <div class="result-block" id="t2d-result">
                 <div class="result-value" id="t2d-val">—</div>
+                <div class="t2d-popover" id="t2d-popover"></div>
+              </div>
+              <div class="input-hint" id="t2d-result-hint"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+              <span data-i18n="currentTime">当前时间</span>
+              <span class="live-dot" id="live-dot"></span>
+              <button class="btn-pause" id="btn-pause" data-i18n="pause">暂停</button>
+            </div>
+          <div class="card-inner now-card-inner">
+            <div class="left-col">
+              <div class="now-grid">
+                <div class="now-item clickable" data-copy-val>
+                  <span class="now-label" data-i18n="localTime">本地时间</span>
+                  <span class="now-value mono" id="now-date">—</span>
+                </div>
+                <div class="now-item clickable" id="now-sec-item" data-copy-val>
+                  <span class="now-label" data-i18n="secTs">秒级时间戳</span>
+                  <span class="now-value mono" id="now-sec">—</span>
+                </div>
+                <div class="now-item clickable" id="now-ms-item" data-copy-val>
+                  <span class="now-label" data-i18n="msTs">毫秒级时间戳</span>
+                  <span class="now-value mono" id="now-ms">—</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </section>
+  </div>
 
-    <section class="now-section">
-      <div class="now-header">
-        <span data-i18n="currentTime">当前时间</span>
-        <span class="live-dot" id="live-dot"></span>
-        <button class="btn-pause" id="btn-pause" data-i18n="pause">暂停</button>
+  <!-- 配置弹窗 -->
+  <div id="tz-config-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="config-tabs" id="config-tabs">
+          <button type="button" class="config-tab active" data-tab="tz" data-i18n="tabTimezone">时区配置</button>
+          <button type="button" class="config-tab" data-tab="fmt" data-i18n="tabDateFormat">日期格式</button>
+        </div>
+        <span class="modal-hint" id="hint-tz" data-i18n="tzConfigDesc">勾选要在时区下拉框中显示的时区</span>
+        <span class="modal-hint hidden" id="hint-fmt" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</span>
+        <button class="modal-close" id="modal-close">&times;</button>
       </div>
-      <div class="now-grid">
-        <div class="now-item clickable" data-copy-val>
-          <span class="now-label" data-i18n="localTime">本地时间</span>
-          <span class="now-value mono" id="now-date">—</span>
+      <div class="modal-body">
+        <div class="config-pane" id="pane-tz">
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="tz-search" placeholder="搜索时区名称...">
+              <div class="tz-filter" id="tz-filter" role="group">
+                <button type="button" class="tz-filter-btn active" data-value="all" data-i18n="filterAll">全部</button>
+                <button type="button" class="tz-filter-btn" data-value="selected" data-i18n="filterSelected">已选中</button>
+                <button type="button" class="tz-filter-btn" data-value="unselected" data-i18n="filterUnselected">未选中</button>
+              </div>
+              <div class="timezone-actions">
+                <button class="btn-primary" id="save-tz-config" data-i18n="save">保存配置</button>
+                <button class="btn-secondary" id="reset-tz-config" data-i18n="reset">重置默认</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="timezone-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="customTimezones">自定义时区</h4>
+            <p class="config-desc" data-i18n="customTzDesc">添加自定义时区，支持中文名、英文名和UTC偏移量（-12 到 +14）</p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-tz-cn" placeholder="中文名（如 纽约）">
+                <input type="text" id="custom-tz-en" placeholder="English name (e.g. New York)">
+                <input type="text" id="custom-tz-offset" placeholder="偏移（如 +08:00 / +8 / 8）">
+              </div>
+              <div class="custom-tz-form-row optional-row">
+                <input type="text" id="custom-tz-abbr" placeholder="别名（可选，如 SJZ）">
+                <input type="text" id="custom-tz-iana" placeholder="真实时区（可选，如 America/New_York，自动跟随夏令时）">
+                <button class="btn-primary" id="custom-tz-add" data-i18n="add">添加</button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-tz-list"></div>
+            </div>
+          </div>
         </div>
-        <div class="now-item clickable" id="now-sec-item" data-copy-val>
-          <span class="now-label" data-i18n="secTs">秒级时间戳</span>
-          <span class="now-value mono" id="now-sec">—</span>
-        </div>
-        <div class="now-item clickable" id="now-ms-item" data-copy-val>
-          <span class="now-label" data-i18n="msTs">毫秒级时间戳</span>
-          <span class="now-value mono" id="now-ms">—</span>
+
+        <div class="config-pane hidden" id="pane-fmt">
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="date-fmt-search" placeholder="搜索格式（别名/格式串）...">
+              <div class="timezone-actions">
+                <button class="btn-secondary" id="reset-fmt-config" data-i18n="resetFormats">重置格式</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="date-format-list"></div>
+            </div>
+          </div>
+           <div class="config-section custom-tz-section">
+            <h4 data-i18n="customFormats">自定义格式</h4>
+            <p class="config-desc" data-i18n="builtinFormatsDesc">别名可增强搜索，格式串使用占位符：YYYY年 MM月 DD日 HH 24小时・hh 12小时 mm分 ss秒 SSS毫秒 A AM・PM W 星期</p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-fmt-label" placeholder="别名（如 我的格式）">
+                <input type="text" id="custom-fmt-input" placeholder="格式串，如 YYYY年MM月DD日 HH:mm:ss">
+                <button class="btn-primary" id="custom-fmt-add" data-i18n="add">添加</button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-fmt-list"></div>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="index.js?v=20"></script>
+  <script src="index.js?v=1788748117810"></script>
 </body>
 </html>
