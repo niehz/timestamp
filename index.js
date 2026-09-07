@@ -3001,7 +3001,6 @@ function setupCsb(scrollEl) {
   const track = document.createElement('div');
   track.className = 'csb';
   track.innerHTML = '<div class="csb-thumb"></div>';
-  // 轨道作为容器第一个子元素，用 position:sticky 钉在滚动视口顶部（不随内容滚动，各引擎通用）
   scrollEl.insertBefore(track, scrollEl.firstChild);
   const thumb = track.firstElementChild;
   const csb = { el: scrollEl, track, thumb, last: '' };
@@ -3048,13 +3047,82 @@ function setupCsb(scrollEl) {
   new MutationObserver(() => requestAnimationFrame(sync)).observe(scrollEl, { childList: true, subtree: true });
   sync();
 }
+function setupCsbAbs(scrollEl, host) {
+  if (!scrollEl || scrollEl.__csb) return;
+  scrollEl.__csb = true;
+  const track = document.createElement('div');
+  track.className = 'csb-abs';
+  track.innerHTML = '<div class="csb-thumb"></div>';
+  host.appendChild(track);
+  const thumb = track.firstElementChild;
+  const csb = { el: scrollEl, track, thumb, host, last: '' };
+  csbList.push(csb);
+  const sync = () => {
+    const contentH = scrollEl.scrollHeight, viewH = scrollEl.clientHeight;
+    const scrollTop = scrollEl.scrollTop;
+    const r = scrollEl.getBoundingClientRect();
+    const top = Math.round(r.top - host.getBoundingClientRect().top);
+    const key = contentH + '|' + viewH + '|' + Math.round(scrollTop / 2) + '|' + top;
+    if (key === csb.last) return;
+    csb.last = key;
+    const trackH = Math.max(20, viewH - 4);
+    track.style.top = (top + 2) + 'px';
+    track.style.height = trackH + 'px';
+    if (contentH <= viewH + 1 || viewH <= 0) {
+      track.classList.remove('show');
+      thumb.style.height = '0px';
+      thumb.style.top = '0px';
+      return;
+    }
+    track.classList.add('show');
+    const thumbH = Math.max(20, trackH * viewH / contentH);
+    const maxScroll = contentH - viewH;
+    thumb.style.height = thumbH + 'px';
+    const maxTop = Math.max(0, trackH - thumbH);
+    thumb.style.top = (maxScroll > 0 ? Math.min(maxTop, trackH * scrollTop / maxScroll) : 0) + 'px';
+  };
+  csb.sync = sync;
+  scrollEl.addEventListener('scroll', sync, { passive: true });
+  host.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
+  let dragging = null;
+  thumb.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragging = { startY: e.clientY, startTop: scrollEl.scrollTop };
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    if (maxScroll <= 0) return;
+    const trackH = Math.max(20, scrollEl.clientHeight - 4);
+    const thumbH = Math.max(20, thumb.offsetHeight);
+    const ratio = (e.clientY - dragging.startY) / ((trackH - thumbH) || 1);
+    scrollEl.scrollTop = dragging.startTop + ratio * maxScroll;
+  });
+  document.addEventListener('mouseup', () => { dragging = null; });
+  new MutationObserver(() => requestAnimationFrame(sync)).observe(scrollEl, { childList: true, subtree: true });
+  sync();
+}
 function initCsb() {
-  document.querySelectorAll('.timezone-list-container, .modal-body, .main-grid').forEach(setupCsb);
+  const appHost = document.querySelector('.app');
+  document.querySelectorAll('.timezone-list-container').forEach(setupCsb);
+  document.querySelectorAll('.modal-body').forEach((el) => {
+    const host = el.closest('.modal-content') || appHost;
+    setupCsbAbs(el, host);
+  });
+  document.querySelectorAll('.main-grid').forEach((el) => setupCsbAbs(el, appHost));
   document.querySelectorAll('.modal').forEach((m) => {
     new MutationObserver(() => {
       for (const c of csbList) c.last = '';
       requestAnimationFrame(() => csbList.forEach((c) => { c.last = ''; c.sync(); }));
     }).observe(m, { attributes: true, attributeFilter: ['class'] });
+  });
+  document.querySelectorAll('.config-pane').forEach((p) => {
+    new MutationObserver(() => {
+      for (const c of csbList) c.last = '';
+      requestAnimationFrame(() => csbList.forEach((c) => { c.last = ''; c.sync(); }));
+    }).observe(p, { attributes: true, attributeFilter: ['class'] });
   });
 }
 
