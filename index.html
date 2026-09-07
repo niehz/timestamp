@@ -1,10 +1,10 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>时间戳转换器 / Timestamp Converter</title>
-  <link rel="stylesheet" href="index.css?v=1788749940181">
+  <link rel="stylesheet" href="index.css?v=1789670000000">
 </head>
 <body>
   <div class="app">
@@ -39,11 +39,12 @@
                   <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
                          placeholder=".ms" style="display:none">
                   <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
+                  <button type="button" class="clear-btn" id="btn-date-clear" title="清空">×</button>
                   <div class="date-suggest" id="date-suggest"></div>
                   <div class="cal-popover" id="calendar">
                   <div class="cal-main">
                     <div class="cal-left">
-                      <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
+                       <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
                       <div class="cal-head">
                         <button class="cal-nav" id="cal-prev" title="上一年">◀</button>
                         <button class="cal-title-btn" id="cal-title" title="点击切换 年月">2026年 8月</button>
@@ -93,7 +94,7 @@
                   </div>
                 </div>
                               </div>
-                <div class="custom-tz-selector" title="双滚轮时区选择器：滚轮切换小时/分钟，点击?重置为全局时区">
+                <div class="custom-tz-selector" title="双滚轮时区选择器：滚轮切换小时/分钟，点击⟲重置为全局时区">
                   <div class="tz-hour-wheel" id="tz-hour-wheel" title="小时滚轮：滚轮切换时区偏移小时，点击后可滚动">
                     <div class="wheel-content"></div>
                   </div>
@@ -121,6 +122,7 @@
             <div class="left-col">
               <div class="input-box">
                 <input id="ts-input" type="text" spellcheck="false">
+                <button type="button" class="clear-btn" id="btn-ts-clear" title="清空">×</button>
               </div>
               <div class="input-hint" id="t2d-hint"></div>
             </div>
@@ -170,9 +172,11 @@
         <div class="config-tabs" id="config-tabs">
           <button type="button" class="config-tab active" data-tab="tz" data-i18n="tabTimezone">时区配置</button>
           <button type="button" class="config-tab" data-tab="fmt" data-i18n="tabDateFormat">日期格式</button>
+          <button type="button" class="config-tab" data-tab="parse" data-i18n="tabDateParse">日期解析</button>
         </div>
         <span class="modal-hint" id="hint-tz" data-i18n="tzConfigDesc">勾选要在时区下拉框中显示的时区</span>
         <span class="modal-hint hidden" id="hint-fmt" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</span>
+        <span class="modal-hint hidden" id="hint-parse" data-i18n="dateParseDesc">勾选要启用的日期解析格式，无关键字时自动识别日期字符串</span>
         <button class="modal-close" id="modal-close">&times;</button>
       </div>
       <div class="modal-body">
@@ -243,11 +247,56 @@
             </div>
           </div>
         </div>
+
+        <div class="config-pane hidden" id="pane-parse">
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="date-parse-search" placeholder="搜索格式...">
+              <div class="timezone-actions">
+                <button class="btn-secondary" id="reset-parse-config" data-i18n="resetParse">重置解析</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="date-parse-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="customParse">自定义解析规则</h4>
+            <p class="config-desc" data-i18n="customParseDesc"></p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-parse-label" placeholder="名称（可选）">
+                <input type="text" id="custom-parse-input" data-type="placeholder" placeholder="占位符格式或正则">
+              </div>
+              <div class="custom-tz-form-row">
+                <span class="custom-parse-type-label" data-i18n="customParseType"></span>
+                <div class="tz-filter" id="custom-parse-type">
+                  <button type="button" class="tz-filter-btn active" data-value="placeholder" data-i18n="customParseTypePlaceholder"></button>
+                  <button type="button" class="tz-filter-btn" data-value="regex" data-i18n="customParseTypeRegex"></button>
+                </div>
+                <button class="btn-primary" id="custom-parse-add" data-i18n="customParseAdd"></button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-parse-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="monthDayStyle">月日歧义风格</h4>
+            <p class="config-desc" data-i18n="monthDayStyleDesc">07/09/2026 是月日还是日月顺序，无歧义风格默认本地，二位数年份自动补当年（如 09-07）</p>
+            <div class="tz-filter" id="parse-style">
+              <button type="button" class="tz-filter-btn active" data-value="us" data-i18n="styleUs">美式 MM/DD</button>
+              <button type="button" class="tz-filter-btn" data-value="eu" data-i18n="styleEu">欧式 DD/MM</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="index.js?v=1788749940181"></script>
+  <script src="index.js?v=1789670000000"></script>
 </body>
 </html>

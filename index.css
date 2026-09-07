@@ -172,6 +172,9 @@ html,body{height:100%;overflow:hidden}
 #ms-input{flex:0 0 auto;width:40px;text-align:center;padding:6px 1px}
 .cal-btn{border:none;background:transparent;color:var(--dim);font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;transition:color .15s;line-height:1;display:flex;align-items:center;justify-content:center}
 .cal-btn:hover{color:var(--accent)}
+.clear-btn{border:none;background:transparent;color:var(--dim);font-size:16px;line-height:1;cursor:pointer;padding:4px 7px;flex-shrink:0;border-radius:6px;transition:color .15s,background .15s;display:none}
+.clear-btn.show{display:inline-flex;align-items:center;justify-content:center}
+.clear-btn:hover{color:var(--danger);background:rgba(255,107,122,0.12)}
 
 .cal-popover{position:absolute;z-index:50;top:calc(100% + 10px);left:0;width:max-content;max-width:92vw;background:linear-gradient(180deg,#1e2230,#181b26);border:1px solid rgba(255,255,255,0.08);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.55),0 0 0 1px rgba(0,0,0,0.2);padding:16px;display:none;backdrop-filter:blur(8px)}
 
@@ -340,6 +343,13 @@ html,body{height:100%;overflow:hidden}
 .tz-alias{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:1px}
 .timezone-offset{font-size:12px;color:var(--dim);font-family:var(--mono)}
 .timezone-value{font-size:11px;color:var(--dim);opacity:0.7}
+.parse-more{font-size:11px;color:var(--accent);cursor:pointer;margin-left:8px;font-family:var(--base-font)}
+.parse-examples{display:none;gap:6px;flex-wrap:wrap;margin-top:6px;font-family:var(--mono)}
+.parse-item.open .parse-examples{display:flex}
+.parse-exam{font-size:11px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-family:var(--mono)}
+.custom-fmt-toggle{flex-shrink:0;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:all .15s}
+.custom-fmt-toggle:hover{background:var(--accent-soft);border-color:var(--accent)}
+.custom-parse-type-label{font-size:12px;color:var(--dim);margin-right:8px}
 .fmt-drag{flex:0 0 22px;color:var(--dim);cursor:grab;user-select:none;font-size:15px;opacity:.6}
 .fmt-drag:hover{opacity:1;color:var(--text)}
 .timezone-item.dragging{opacity:.5;border:1px dashed var(--accent);background:var(--accent-soft)}

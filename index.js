@@ -360,11 +360,11 @@ const I18N = {
     convert: '转换', copy: '复制', copied: '已复制',
     datePlaceholder: 'YYYY-MM-DD',
     timePlaceholder: 'HH:mm:ss', msPlaceholder: '毫秒',
-    tsPlaceholderSec: '请输入秒级时间戳 (10位)',
-    tsPlaceholderMs: '请输入毫秒时间戳 (13位)',
+    tsPlaceholderSec: '请输入秒级时间戳',
+    tsPlaceholderMs: '请输入毫秒级时间戳',
     currentTime: '当前时间', pause: '暂停', resume: '继续',
     localTime: '本地时间', secTs: '秒级时间戳', msTs: '毫秒级时间戳',
-    copiedMsg: '已复制到剪贴板', tsUnitSec: '秒', tsUnitMs: '毫秒',
+    copiedMsg: '已复制到剪贴板', tsUnitSec: '秒', tsUnitMs: '毫秒', customTag: '自定义',
     outOfRange: '超出可表示范围',
     hintClick: '输入即转换 · 点击结果复制',
     invalidDate: '日期格式无效',
@@ -386,6 +386,23 @@ const I18N = {
     customTzDesc: '添加自定义时区：填真实时区（如 America/New_York）将自动跟随夏令时；不填则用固定偏移',
     add: '添加', noCustomTz: '暂无自定义时区',
     configTitle: '配置', tabTimezone: '时区配置', tabDateFormat: '日期格式',
+    tabDateParse: '日期解析',
+    dateParseDesc: '勾选要启用的日期解析格式；无关键词进入时自动识别剪贴板日期',
+    resetParse: '重置解析',
+    dateParseSearchPlaceholder: '搜索格式...',
+    monthDayStyle: '月/日 歧义风格',
+    monthDayStyleDesc: '07/09/2026 这类月/日顺序歧义按所选风格解释，并自动套用到今年（如 09-07）',
+    styleUs: '美式 MM/DD', styleEu: '欧式 DD/MM',
+    noMatch: '无匹配',
+    customParse: '自定义解析规则方法',
+    customParseDesc: '添加自定义规则来自动识别非标准格式。占位符用 YYYY YY MM DD HH hh mm ss SSS；正则需要具名捕获组 y/mo/d/h/mi/s/ms（至少 y/mo/d）。自定义规则优先于内置格式解析。',
+    customParsePlaceholder: '占位符格式，如 YYYY年M月D日 H时m分',
+    customParseRegex: '正则，如 ^(?<y>\\d{4})/(?<mo>\\d{1,2})/(?<d>\\d{1,2})$',
+    customParseAdd: '添加',
+    noCustomParse: '暂无自定义规则',
+    customParseType: '类型：',
+    customParseTypePlaceholder: '占位符',
+    customParseTypeRegex: '正则',
   },
   en: {
     secTab: 'Seconds', msTab: 'Milliseconds',
@@ -399,7 +416,7 @@ const I18N = {
     tsPlaceholderMs: 'Enter ms timestamp (13 digits)',
     currentTime: 'Current Time', pause: 'Pause', resume: 'Resume',
     localTime: 'Local Time', secTs: 'Seconds TS', msTs: 'Milliseconds TS',
-    copiedMsg: 'Copied to clipboard', tsUnitSec: 'sec', tsUnitMs: 'ms',
+    copiedMsg: 'Copied to clipboard', tsUnitSec: 'sec', tsUnitMs: 'ms', customTag: 'Custom',
     outOfRange: 'Out of representable range',
     hintClick: 'Type to convert · Click result to copy',
     invalidDate: 'Invalid date format',
@@ -421,12 +438,30 @@ const I18N = {
     customTzDesc: 'Add custom timezones: enter a real timezone (e.g. America/New_York) to follow DST automatically, or use a fixed offset',
     add: 'Add', noCustomTz: 'No custom timezones yet',
     configTitle: 'Settings', tabTimezone: 'Timezones', tabDateFormat: 'Date Formats',
+    tabDateParse: 'Date Parsing',
+    dateParseDesc: 'Enable date parse formats; clipboard dates auto-detected on entry',
+    resetParse: 'Reset Parsing',
+    dateParseSearchPlaceholder: 'Search formats...',
+    monthDayStyle: 'Month/Day Style',
+    monthDayStyleDesc: 'Ambiguous month/day order like 07/09/2026 follows the selected style; also applied to yearless forms (e.g. 09-07)',
+    styleUs: 'US MM/DD', styleEu: 'EU DD/MM',
+    noMatch: 'No match',
+    customParse: 'Custom parse rules',
+    customParseDesc: 'Add custom rules to recognize non-standard formats. Placeholder tokens: YYYY YY MM DD HH hh mm ss SSS; regex must use named groups y/mo/d/h/mi/s/ms (at least y/mo/d). Custom rules are tried before built-in formats.',
+    customParsePlaceholder: 'Placeholder format, e.g. YYYY年M月D日 H时m分',
+    customParseRegex: 'Regex, e.g. ^(?<y>\\d{4})/(?<mo>\\d{1,2})/(?<d>\\d{1,2})$',
+    customParseAdd: 'Add',
+    noCustomParse: 'No custom rules yet',
+    customParseType: 'Type: ',
+    customParseTypePlaceholder: 'Placeholder',
+    customParseTypeRegex: 'Regex',
   },
 };
 
 let lang = 'zh';
 const BUILD = 'v20';
 let currentTab = 'sec';
+let inputTzCustom = false;
 let paused = false;
 let lastNow = new Date();
 let lastSec = 0;
@@ -471,6 +506,8 @@ const t2dResultEl = $('#t2d-result');
 const t2dPopoverEl = $('#t2d-popover');
 const hintD2t = $('#d2t-hint');
 const hintT2d = $('#t2d-hint');
+const btnDateClear = $('#btn-date-clear');
+const btnTsClear = $('#btn-ts-clear');
 const btnLang = $('#btn-lang');
 const calendarEl = $('#calendar');
 const calGrid = $('#cal-grid');
@@ -541,6 +578,7 @@ const btnSaveTzConfig = $('#save-tz-config');
 const btnResetTzConfig = $('#reset-tz-config');
 const btnTzConfig = $('#tz-config-btn');
 const modalCloseEl = $('#modal-close');
+const dateParseSearchEl = $('#date-parse-search');
 const btnCustomFmtAdd = $('#custom-fmt-add');
 const btnResetFmtConfig = $('#reset-fmt-config');
 const customTzCnEl = $('#custom-tz-cn');
@@ -841,11 +879,16 @@ function escapeAttr(str) {
 function applyModalI18n() {
   const emptyTip = customTzListEl && customTzListEl.querySelector('.empty-tip');
   if (emptyTip) emptyTip.textContent = t('noCustomTz');
+  renderDateParseList();
+  renderCustomParseRules();
+  updateParseStyleBtns();
+  const dateParseSearch = $('#date-parse-search');
+  if (dateParseSearch) dateParseSearch.placeholder = t('dateParseSearchPlaceholder');
 }
 
 function initTzConfig() {
   const configTabsEl = $('#config-tabs');
-  const configPanes = { tz: $('#pane-tz'), fmt: $('#pane-fmt') };
+  const configPanes = { tz: $('#pane-tz'), fmt: $('#pane-fmt'), parse: $('#pane-parse') };
   if (configTabsEl) {
     configTabsEl.querySelectorAll('.config-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -857,8 +900,10 @@ function initTzConfig() {
         });
         const hintTz = $('#hint-tz');
         const hintFmt = $('#hint-fmt');
+        const hintParse = $('#hint-parse');
         if (hintTz) hintTz.classList.toggle('hidden', name !== 'tz');
         if (hintFmt) hintFmt.classList.toggle('hidden', name !== 'fmt');
+        if (hintParse) hintParse.classList.toggle('hidden', name !== 'parse');
       });
     });
   }
@@ -867,6 +912,9 @@ function initTzConfig() {
       tzConfigModal.classList.add('show');
       renderTzConfigList();
       renderCustomTzList();
+      renderDateParseList();
+      renderCustomParseRules();
+      updateParseStyleBtns();
     });
   }
   if (modalCloseEl) {
@@ -1049,53 +1097,318 @@ function parseRelative(text) {
   return { kind: 'date', y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: 0, mi: 0, se: 0 };
 }
 
-function parseDate(text) {
+// ============ 日期解析引擎 ============
+const DATE_PARSE_FORMATS = [
+  { id: 'iso', label: 'ISO 8601（含时区 / Z / 偏移）', labelEn: 'ISO 8601 (tz / Z / offset)', examples: ['2026-09-07', '2026-09-07 13:49:08', '2026-09-07T13:49:08Z', '20260907T134908+0800', '2026-09-07 13:49:08 GMT'] },
+  { id: 'cjk', label: '中文年月日（2026年9月7日）', labelEn: 'Chinese y/m/d (2026年9月7日)', examples: ['2026年9月7日', '2026年9月7日 13:49:08', '2026年09月07日13时49分08秒'] },
+  { id: 'ymd', label: '年在前 YYYY-MM-DD / YYYY-MM', labelEn: 'Year-first YYYY-MM-DD / YYYY-MM', examples: ['2026-09-07', '2026-09-07 13:49:08', '2026/09/07', '2026-09'] },
+  { id: 'rfcm', label: 'RFC 2822 / 英文月份', labelEn: 'RFC 2822 / English months', examples: ['Thu, 07 Sep 2026 13:49:08 GMT', '7 Sep 2026', 'September 7, 2026'] },
+  { id: 'num', label: '月/日式（受歧义风格控制）', labelEn: 'Month-day style (via ambiguity style)', examples: ['09/07/2026', '09-07-2026', '9/7/2026 13:49', '09.07'] },
+];
+function loadDateParseSettings() {
+  try {
+    const raw = localStorage.getItem('date_parse_settings');
+    if (raw) {
+      const o = JSON.parse(raw);
+      const ids = DATE_PARSE_FORMATS.map(f => f.id);
+      const enabled = Array.isArray(o.enabled)
+        ? o.enabled.filter(id => ids.includes(id))
+        : null;
+      return {
+        enabled: Array.isArray(enabled) && enabled.length
+          ? new Set(enabled)
+          : new Set(ids),
+        style: o.style === 'eu' ? 'eu' : 'us',
+        custom: Array.isArray(o.custom) ? o.custom.filter(v => v && typeof v === 'object') : [],
+      };
+    }
+  } catch (e) {}
+  return { enabled: new Set(DATE_PARSE_FORMATS.map(f => f.id)), style: 'us', custom: [] };
+}
+const _dateParseCfg = loadDateParseSettings();
+let DATE_PARSE_ENABLED = _dateParseCfg.enabled;
+let dateParseStyle = _dateParseCfg.style;
+let CUSTOM_PARSE_RULES = _dateParseCfg.custom;
+function saveDateParseSettings() {
+  localStorage.setItem('date_parse_settings', JSON.stringify({ enabled: [...DATE_PARSE_ENABLED], style: dateParseStyle, custom: CUSTOM_PARSE_RULES }));
+}
+function fracToMs(f) {
+  if (f == null) return 0;
+  const s = String(f).split('.')[1] || String(f);
+  return Math.round(Number('0.' + s.slice(0, 3).padEnd(3, '0')) * 1000);
+}
+function validYmd(y, mo, d) {
+  return y >= 1 && y <= 9999 && mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
+}
+function parseIsoFmt(s) {
+  const tzInfo = tzFromDateString(s);
+  const explicit = tzInfo && (tzInfo.value === 'UTC' || tzInfo.offset != null);
+  const compact = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2}):?(\d{2})(?::?(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i);
+  if (compact) {
+    const y = +compact[1], mo = +compact[2], d = +compact[3];
+    const h = +compact[4], mi = +compact[5], se = compact[6] != null ? +compact[6] : 0;
+    const ms = fracToMs(compact[7]);
+    if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+    const zone = compact[8];
+    if (!zone) return { mode: 'parts', y, mo, d, h, mi, s: se, ms };
+    if (/^z$/i.test(zone)) return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: 'UTC', value: 'UTC', offset: 0 } };
+    const om = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
+    if (om) {
+      const offset = (+om[2] * 60 + +om[3]) * (om[1] === '-' ? -1 : 1);
+      return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: `${om[1]}${om[2]}:${om[3]}`, offset, value: `FIXED:${om[1]}${om[2]}${om[3]}` } };
+    }
+    return null;
+  }
+  if (explicit) {
+    const abs = Date.parse(s);
+    if (Number.isNaN(abs)) return null;
+    return { mode: 'abs', abs, tz: tzInfo };
+  }
+  return null;
+}
+function parseYmdFmt(s) {
+  if (/^\d{4}$/.test(s)) {
+    const now = new Date();
+    return { mode: 'parts', y: +s, mo: now.getMonth() + 1, d: now.getDate(), h: 0, mi: 0, s: 0, ms: 0 };
+  }
+  const ym = s.match(/^(\d{4})[-/年](\d{1,2})月?$/);
+  if (ym) {
+    const y = +ym[1], mo = +ym[2];
+    if (!validYmd(y, mo, 1)) return null;
+    return { mode: 'parts', y, mo, d: 1, h: 0, mi: 0, s: 0, ms: 0 };
+  }
+  const m = s.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+}
+function parseCjkFmt(s) {
+  const m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+}
+function parseRfcmFmt(s) {
+  if (!/[A-Za-z]{3,}/.test(s)) return null;
+  const t = Date.parse(s);
+  if (Number.isNaN(t)) return null;
+  return { mode: 'abs', abs: t, tz: tzFromDateString(s) || null };
+}
+function parseNumFmt(s) {
+  const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  if (m) {
+    let y = +m[3];
+    if (y < 100) y += y < 70 ? 2000 : 1900;
+    const a = +m[1], b = +m[2];
+    const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
+    const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+    if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+  }
+  const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  if (yl) {
+    const a = +yl[1], b = +yl[2];
+    const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
+    const y = new Date().getFullYear();
+    const h = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
+    if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(yl[6]) };
+  }
+  return null;
+}
+function parseCustomPlaceholder(pattern, s) {
+  if (!pattern || !s) return null;
+  let regexStr = '';
+  const fields = [];
+  let pi = 0;
+  const tokenRe = /YYYY|YY|MM|DD|HH|hh|mm|ss|SSS|[A-Za-z]+|\S|./g;
+  let m;
+  while ((m = tokenRe.exec(pattern)) !== null) {
+    const tok = m[0];
+    if (tok === 'YYYY') { fields.push({ k: 'y', i: fields.length + 1 }); regexStr += '(\\d{4})'; }
+    else if (tok === 'YY') { fields.push({ k: 'yy', i: fields.length + 1 }); regexStr += '(\\d{2})'; }
+    else if (tok === 'MM') { fields.push({ k: 'mo', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'DD') { fields.push({ k: 'd', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'HH') { fields.push({ k: 'h', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'hh') { fields.push({ k: 'hh', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'mm') { fields.push({ k: 'mi', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'ss') { fields.push({ k: 's', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
+    else if (tok === 'SSS') { fields.push({ k: 'ms', i: fields.length + 1 }); regexStr += '(\\d{1,3})'; }
+    else if (/^[A-Za-z]+$/.test(tok)) { regexStr += tok; }
+    else regexStr += tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pi += tok.length;
+  }
+  const re = new RegExp('^' + regexStr + '$');
+  const mm2 = s.match(re);
+  if (!mm2) return null;
+  const out = {};
+  let yy = null;
+  for (const f of fields) {
+    const v = mm2[f.i];
+    if (v == null || v === '') return null;
+    if (f.k === 'yy') { yy = +v; continue; }
+    if (f.k === 'hh') { if (out.h == null) out.h = (+v) % 24; continue; }
+    const key = f.k; // y | mo | d | h | mi | s | ms
+    out[key] = +v;
+  }
+  if (yy != null) {
+    out.y = yy < 70 ? 2000 + yy : 1900 + yy;
+  }
+  if (out.y == null) out.y = new Date().getFullYear();
+  if (out.mo == null) out.mo = 1;
+  if (out.d == null) out.d = 1;
+  if (!validYmd(out.y, out.mo, out.d) || (out.h != null && out.h > 23) || (out.mi != null && out.mi > 59) || (out.s != null && out.s > 59)) return null;
+  const r = { mode: 'parts', y: out.y, mo: out.mo, d: out.d };
+  if (out.h != null) r.h = out.h; else r.h = 0;
+  if (out.mi != null) r.mi = out.mi; else r.mi = 0;
+  if (out.s != null) r.s = out.s; else r.s = 0;
+  if (out.ms != null) r.ms = out.ms; else r.ms = 0;
+  return r;
+}
+function parseCustomRegex(pattern, s) {
+  if (!pattern || !s) return null;
+  let re;
+  try { re = new RegExp(pattern); } catch (e) { return null; }
+  const mm = re.exec(s);
+  if (!mm) return null;
+  const g = mm.groups || {};
+  const num = (v) => (v == null || v === '' ? null : +v);
+  const y = num(g.y), mo = num(g.mo), d = num(g.d);
+  const h = num(g.h), mi = num(g.mi), se = num(g.s), ms = num(g.ms);
+  if ((y == null || mo == null || d == null) && !(y != null && mo == null && (g.d == null))) {
+    return null;
+  }
+  let yy = y;
+  if (yy != null && g.y != null ? /^\d{2}$/.test(g.y) : false) yy = yy < 70 ? 2000 + yy : 1900 + yy;
+  const outY = yy != null ? yy : new Date().getFullYear();
+  const outMo = mo != null ? mo : 1;
+  const outD = d != null ? d : 1;
+  if (!validYmd(outY, outMo, outD) || (h != null && h > 23) || (mi != null && mi > 59) || (se != null && se > 59)) return null;
+  return { mode: 'parts', y: outY, mo: outMo, d: outD, h: h != null ? h : 0, mi: mi != null ? mi : 0, s: se != null ? se : 0, ms: ms != null ? ms : 0 };
+}
+function parseDateEx(text) {
   const s = text.trim();
   if (!s) return null;
   const rel = parseRelative(s);
-  if (rel) return rel;
-  const tzInfo = tzFromDateString(s);
-  if (tzInfo) {
+  if (rel) return { mode: 'parts', y: rel.y, mo: rel.mo, d: rel.d, h: 0, mi: 0, s: 0, ms: 0 };
+  const split = splitZone(s);
+  const base = split.base;
+  const tz = split.tz;
+  // 自定义规则优先于内置格式
+  for (const rule of CUSTOM_PARSE_RULES) {
+    if (rule && rule.enabled === false) continue;
+    if (!rule || !rule.pattern) continue;
+    let r = rule.type === 'regex' ? parseCustomRegex(rule.pattern, base) : parseCustomPlaceholder(rule.pattern, base);
+    if (r) {
+      if (tz && r.mode === 'parts') r.tz = tz;
+      r.src = 'custom';
+      r.customId = rule.id;
+      return r;
+    }
+  }
+  for (const f of DATE_PARSE_FORMATS) {
+    if (!DATE_PARSE_ENABLED.has(f.id)) continue;
+    let r = null;
+    if (f.id === 'iso') r = parseIsoFmt(base);
+    else if (f.id === 'ymd') r = parseYmdFmt(base);
+    else if (f.id === 'cjk') r = parseCjkFmt(base);
+    else if (f.id === 'rfcm') r = parseRfcmFmt(s);
+    else if (f.id === 'num') r = parseNumFmt(base);
+    if (r) {
+      if (tz && r.mode === 'parts') r.tz = tz;
+      r.src = f.id;
+      return r;
+    }
+  }
+  if (tz && tz.value === 'UTC') {
     const abs = Date.parse(s);
-    if (!Number.isNaN(abs)) return { kind: 'date', abs, tz: tzInfo };
-    return null;
+    if (!Number.isNaN(abs)) return { mode: 'abs', abs, tz, src: 'iso' };
   }
-  const m = s.match(/^(\d{4})(?:[-/年](\d{1,2}))?(?:[-/月](\d{1,2})(?:日)?)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
-  if (m) {
-    const y = +m[1];
-    if (m[2] == null) return { kind: 'date', y, mo: new Date().getMonth() + 1, d: new Date().getDate(), h: 0, mi: 0, se: 0 };
-    const mo = +m[2];
-    if (m[3] == null) {
-      if (mo >= 1 && mo <= 12) return { kind: 'date', y, mo, d: 1, h: 0, mi: 0, se: 0 };
-      return null;
-    }
-    const d = +m[3];
-    const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
-    if (mo >= 1 && mo <= 12 && h <= 23 && mi <= 59 && se <= 59) {
-      const dim = new Date(y, mo, 0).getDate();
-      if (d >= 1 && d <= dim) return { kind: 'date', y, mo, d, h, mi, se };
-    }
-    return null;
-  }
-  if (/^-?\d+$/.test(s)) return null;
-  const t = Date.parse(s);
-  if (!Number.isNaN(t)) return { kind: 'stamp', ms: t };
   return null;
 }
 
-function tzFromDateString(s) {
-  const str = s.trim();
-  if (/Z(?:[+-]\d{2}:?\d{2})?$/i.test(str)) return { label: 'UTC', value: 'UTC' };
-  if (/\b(UTC|GMT)\b/i.test(str)) return { label: 'UTC', value: 'UTC' };
-  const off = /([+-])(\d{2}):?(\d{2})$/.exec(str);
-  if (off) {
-    const hh = +off[2], mm = +off[3];
-    const mins = (hh * 60 + mm) * (off[1] === '-' ? -1 : 1);
-    return { label: `${off[1]}${pad(hh)}:${pad(mm)}`, offset: mins, value: `FIXED:${off[1]}${pad(hh)}${pad(mm)}` };
+function parseDate(text) {
+  const pe = parseDateEx(text);
+  if (!pe) return null;
+  if (pe.mode === 'parts') return { kind: 'date', y: pe.y, mo: pe.mo, d: pe.d, h: pe.h, mi: pe.mi, se: pe.s };
+  if (pe.tz != null) return { kind: 'date', abs: pe.abs, tz: pe.tz };
+  return { kind: 'stamp', ms: pe.abs };
+}
+
+function peWallStr(pe, tz) {
+  if (!pe) return null;
+  if (pe.mode === 'parts') return toDateStr(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s);
+  const p = tzParts(new Date(pe.abs), tz);
+  return p ? toDateStr(p.y, p.mo, p.d, p.h, p.mi, p.se) : null;
+}
+function peSrcName(id) {
+  const f = DATE_PARSE_FORMATS.find(x => x.id === id);
+  return f ? (lang === 'zh' ? f.label : f.labelEn) : id;
+}
+function applyParsedToFields(pe) {
+  if (!pe) return;
+  if (pe.tz != null) applyParsedTz(pe.tz);
+  const tz = inputTzEl.value || timezoneEl.value;
+  if (pe.mode === 'parts') {
+    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms);
+  } else {
+    const p = tzParts(new Date(pe.abs), tz);
+    if (!p) return;
+    setDateFields(p.y, p.mo, p.d, p.h, p.mi, p.se, p.ms);
   }
-  const rfc = /\b([A-Z]{3,5})\b/.exec(s.replace(/\b(GMT|UTC)\b/gi, ''));
-  if (rfc) return { label: rfc[1], value: null };
-  return null;
+}
+
+const ZONE_ABBR = {
+  GMT: 0, UTC: 0,
+  WET: 0, WEST: 60,
+  CET: 60, CEST: 120,
+  EET: 120, EEST: 180,
+  MSK: 180, EAT: 180,
+  BRT: -180, ART: -180, AST: -240, ADT: -180,
+  CST: 480, CDT: -300,
+  IST: 330, BST: 60,
+  JST: 540, KST: 540,
+  HKT: 480, SGT: 480, AWST: 480, WITA: 480,
+  WIB: 420, VST: 420,
+  PKT: 300, NPT: 345, SLST: 330,
+  EST: -300, EDT: -240,
+  MST: -420, MDT: -360,
+  PST: -480, PDT: -420,
+  AKST: -540, AKDT: -480,
+  HST: -600, SST: -660,
+  NST: -210, NDT: -150,
+  ACST: 570, ACDT: 630, AEST: 600, AEDT: 660,
+  NZST: 720, NZDT: 780, CHST: 600,
+};
+function fixedZoneValue(mins) {
+  const sign = mins >= 0 ? '+' : '-';
+  const a = Math.abs(mins);
+  return `FIXED:${sign}${pad(Math.floor(a / 60))}${pad(a % 60)}`;
+}
+function splitZone(str) {
+  const s = str.trim();
+  const m = /([+-]\d{2}:?\d{2}|Z|[A-Z]{1,5})$/i.exec(s);
+  if (!m) return { base: s, tz: null };
+  const base = s.slice(0, m.index).trim();
+  const tok = m[1].toUpperCase();
+  let tz = null;
+  if (tok === 'Z' || tok === 'GMT' || tok === 'UTC') {
+    tz = { label: 'UTC', value: 'UTC', offset: 0 };
+  } else if (/^[+-]\d{2}:?\d{2}$/.test(tok)) {
+    const om = /^([+-])(\d{2}):?(\d{2})$/.exec(tok);
+    const mins = (+om[2] * 60 + +om[3]) * (om[1] === '-' ? -1 : 1);
+    tz = { label: `${om[1]}${om[2]}:${om[3]}`, offset: mins, value: `FIXED:${om[1]}${om[2]}${om[3]}` };
+  } else if (tok in ZONE_ABBR) {
+    tz = { label: tok, offset: ZONE_ABBR[tok], value: fixedZoneValue(ZONE_ABBR[tok]) };
+  }
+  return { base, tz };
+}
+function tzFromDateString(s) {
+  return splitZone(s).tz;
 }
 
 function toDateStr(y, mo, d, h, mi, se) {
@@ -1106,6 +1419,12 @@ function setDateFields(y, mo, d, h, mi, se, ms) {
   dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
   msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '';
+  syncClearBtns();
+}
+
+function syncClearBtns() {
+  if (btnDateClear) btnDateClear.classList.toggle('show', !!(dateInput.value.trim() || timeInputEl.value.trim() || msInputEl.value.trim()));
+  if (btnTsClear) btnTsClear.classList.toggle('show', !!tsInput.value.trim());
 }
 
 function setDateToNow() {
@@ -1128,14 +1447,14 @@ function readDateSelection() {
   const msText = msInputEl.value.trim();
   if (!base && !timeText && !msText) return { empty: true };
   if (!base) return { err: true };
-  const parsed = parseDate(base);
+  const parsed = parseDateEx(base);
   if (!parsed) return { err: true };
-  if (parsed.abs != null) {
+  if (parsed.mode === 'abs') {
     applyParsedTz(parsed.tz);
     return { kind: 'abs', ms: parsed.abs };
   }
-  if (parsed.kind !== 'date') return { err: true };
-  let h = parsed.h, mi = parsed.mi, se = parsed.se, ms = 0;
+  if (parsed.tz != null) applyParsedTz(parsed.tz);
+  let h = parsed.h, mi = parsed.mi, se = parsed.s, ms = parsed.ms || 0;
   if (timeText) {
     const tm = timeText.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
     if (!tm) return { err: true };
@@ -1151,7 +1470,12 @@ function readDateSelection() {
 
 function applyParsedTz(tzInfo) {
   if (!tzInfo || !tzInfo.value) return;
-  if (tzInfo.value === 'UTC') { inputTzEl.value = 'UTC'; return; }
+  const apply = () => {
+    inputTzCustom = inputTzEl.value !== timezoneEl.value;
+    updateDateToTsTitle();
+    try { inputTzEl.dispatchEvent(new Event('change')); } catch (e) {}
+  };
+  if (tzInfo.value === 'UTC') { inputTzEl.value = 'UTC'; apply(); return; }
   if (tzInfo.offset != null) {
     let exists = false;
     for (let i = 0; i < inputTzEl.options.length; i++) {
@@ -1164,6 +1488,7 @@ function applyParsedTz(tzInfo) {
       inputTzEl.appendChild(opt);
     }
     inputTzEl.value = tzInfo.value;
+    apply();
   }
 }
 
@@ -1203,6 +1528,14 @@ function buildSuggestions(text) {
     } else if (mo === 0) {
       out.push({ date: toDateStr(y, 1, 1, 0, 0, 0), desc: `${y}-01-01` });
       out.push({ date: toDateStr(y, now.getMonth() + 1, now.getDate(), 0, 0, 0), desc: `${y}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} (${t('today')})` });
+    }
+  }
+
+  const pe = parseDateEx(s);
+  if (pe) {
+    const wallStr = peWallStr(pe, inputTzEl.value || timezoneEl.value);
+    if (wallStr && !out.some(i => i.date === wallStr)) {
+      out.push({ date: wallStr, desc: t('useDate') + ' · ' + peSrcName(pe.src) + (pe.tz ? ' ' + pe.tz.label : '') });
     }
   }
 
@@ -1712,6 +2045,7 @@ function setHint(hintEl, text, state) {
 }
 
 function renderConvert() {
+  syncClearBtns();
   const tz = timezoneEl.value;
   const isSec = currentTab === 'sec';
   const sel = readDateSelection();
@@ -1756,6 +2090,7 @@ function tzWeekday(date, tz) {
 }
 
 function renderReverse() {
+  syncClearBtns();
   const tz = timezoneEl.value;
   const isSec = currentTab === 'sec';
   const raw = tsInput.value.trim();
@@ -1798,7 +2133,7 @@ function currentT2dMs() {
 
 function renderT2dPopover() {
   const ms = currentT2dMs();
-  if (ms === null) return;
+  if (ms === null) { t2dPopoverEl.innerHTML = ''; return; }
   const tz = timezoneEl.value;
   const items = currentDateFormats().map(f => {
     const val = formatWithTokens(ms, tz, f.fmt);
@@ -1933,6 +2268,159 @@ function bindFmtList(el) {
       renderReverse();
     });
   });
+}
+function renderDateParseList() {
+  const el = $('#date-parse-list');
+  if (!el) return;
+  const q = (dateParseSearchEl ? dateParseSearchEl.value : '').trim().toLowerCase();
+  const rows = DATE_PARSE_FORMATS.filter(f =>
+    !q || (f.id + ' ' + f.label + ' ' + f.labelEn).toLowerCase().includes(q)
+  ).map(f => {
+    const on = DATE_PARSE_ENABLED.has(f.id);
+    const ex = (f.examples || []).map(e => `<span class="parse-exam">${htmlEscape(e)}</span>`).join('');
+    return `<div class="timezone-item parse-item ${on ? 'selected' : ''}" data-parse-id="${f.id}">
+      <div class="timezone-info">
+        <div class="timezone-name">${lang === 'zh' ? f.label : f.labelEn}</div>
+        <div class="timezone-offset"><span class="timezone-value">${f.id}</span>${on ? `<span class="parse-more">${lang === 'zh' ? '▾ 查看示例' : '▾ examples'}</span>` : `<span class="parse-more">${lang === 'zh' ? '▸ 查看示例' : '▸ examples'}</span>`}</div>
+        <div class="parse-examples">${ex || ''}</div>
+      </div>
+      <div class="fmt-actions"><span class="tz-check">${on ? '✓' : ''}</span></div>
+    </div>`;
+  }).join('');
+  el.innerHTML = rows || `<div class="empty-tip">${t('noMatch')}</div>`;
+  bindDateParseList(el);
+}
+function bindDateParseList(el) {
+  el.querySelectorAll('.timezone-item').forEach(item => {
+    const id = item.dataset.parseId;
+    if (!id) return;
+    const more = item.querySelector('.parse-more');
+    if (more) {
+      more.addEventListener('click', (e) => {
+        e.stopPropagation();
+        item.classList.toggle('open');
+        const open = item.classList.contains('open');
+        more.textContent = lang === 'zh' ? (open ? '▴ 收起' : '▾ 查看示例') : (open ? '▴ collapse' : '▾ examples');
+      });
+    }
+    item.addEventListener('click', () => {
+      if (DATE_PARSE_ENABLED.has(id)) {
+        if (DATE_PARSE_ENABLED.size <= 1) {
+          toast(lang === 'zh' ? '至少保留一个解析格式' : 'Keep at least one format enabled');
+          return;
+        }
+        DATE_PARSE_ENABLED.delete(id);
+      } else {
+        DATE_PARSE_ENABLED.add(id);
+      }
+      saveDateParseSettings();
+      renderDateParseList();
+    });
+  });
+}
+function renderCustomParseRules() {
+  const el = $('#custom-parse-list');
+  if (!el) return;
+  if (!CUSTOM_PARSE_RULES.length) {
+    el.innerHTML = `<div class="empty-tip">${t('noCustomParse')}</div>`;
+    return;
+  }
+  el.innerHTML = CUSTOM_PARSE_RULES.map((r, idx) => {
+    const on = r.enabled !== false;
+    return `<div class="custom-tz-item ${on ? 'selected' : ''}" data-idx="${idx}">
+      <div class="timezone-info">
+        <div class="timezone-name">${htmlEscape(r.label || r.pattern)}</div>
+        <div class="timezone-offset"><span class="timezone-value">${r.type === 'regex' ? (lang === 'zh' ? '正则' : 'regex') : (lang === 'zh' ? '占位符' : 'fmt')}</span></div>
+        <div class="parse-examples"><span class="parse-exam">${htmlEscape(r.pattern)}</span></div>
+      </div>
+      <div class="custom-tz-actions">
+        <button class="custom-fmt-toggle" title="${lang === 'zh' ? '启用/停用' : 'Toggle'}">${on ? '✓' : ''}</button>
+        <button class="custom-fmt-del" title="${lang === 'zh' ? '删除' : 'Delete'}">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.custom-tz-item').forEach(item => {
+    const idx = parseInt(item.dataset.idx);
+    item.querySelector('.custom-fmt-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      CUSTOM_PARSE_RULES[idx].enabled = CUSTOM_PARSE_RULES[idx].enabled === false ? true : false;
+      saveDateParseSettings();
+      renderCustomParseRules();
+    });
+    item.querySelector('.custom-fmt-del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      CUSTOM_PARSE_RULES.splice(idx, 1);
+      saveDateParseSettings();
+      renderCustomParseRules();
+    });
+  });
+}
+function initCustomParseConfig() {
+  const addBtn = $('#custom-parse-add');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const label = ($('#custom-parse-label').value || '').trim();
+      const pattern = ($('#custom-parse-input').value || '').trim();
+      const type = ($('#custom-parse-input').dataset.type) || 'placeholder';
+      if (!pattern) { toast(lang === 'zh' ? '请输入占位符格式或正则' : 'Enter a placeholder format or regex'); return; }
+      if (CUSTOM_PARSE_RULES.some(r => r.pattern === pattern && r.type === type)) {
+        toast(lang === 'zh' ? '该规则已存在' : 'Rule already exists');
+        return;
+      }
+      if (type === 'placeholder' && !/[YMDHS]/.test(pattern.replace(/[hms]/g, '') ) && !/[YMDHms]/.test(pattern)) {
+        // avoid pointless rules; still allow
+      }
+      CUSTOM_PARSE_RULES.push({ id: 'c' + Date.now().toString(36), label: label || pattern, pattern, type });
+      saveDateParseSettings();
+      $('#custom-parse-label').value = '';
+      $('#custom-parse-input').value = '';
+      renderCustomParseRules();
+      toast(lang === 'zh' ? '自定义规则已添加' : 'Custom rule added');
+    });
+  }
+  const typeBtns = document.querySelectorAll('#custom-parse-type .tz-filter-btn');
+  typeBtns.forEach(b => b.addEventListener('click', () => {
+    typeBtns.forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const inp = $('#custom-parse-input');
+    if (inp) inp.dataset.type = b.dataset.value;
+  }));
+}
+function initDateParseConfig() {
+  const searchEl = dateParseSearchEl;
+  if (searchEl) {
+    searchEl.addEventListener('input', () => renderDateParseList());
+    searchEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') { searchEl.value = ''; renderDateParseList(); } });
+  }
+  const btnReset = $('#reset-parse-config');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      DATE_PARSE_ENABLED = new Set(DATE_PARSE_FORMATS.map(f => f.id));
+      dateParseStyle = 'us';
+      saveDateParseSettings();
+      renderDateParseList();
+      updateParseStyleBtns();
+      toast(lang === 'zh' ? '解析已重置' : 'Parsing reset');
+    });
+  }
+  const grp = $('#parse-style');
+  if (grp) {
+    grp.querySelectorAll('.tz-filter-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        dateParseStyle = b.dataset.value === 'eu' ? 'eu' : 'us';
+        saveDateParseSettings();
+        updateParseStyleBtns();
+      });
+    });
+  }
+  updateParseStyleBtns();
+  renderCustomParseRules();
+  initCustomParseConfig();
+}
+function updateParseStyleBtns() {
+  const grp = $('#parse-style');
+  if (!grp) return;
+  grp.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.value === dateParseStyle));
 }
 function applyPresetOrder(presetOrderList) {
   const customs = DATE_FMT_ORDER.filter(f => !DATE_FMT_PRESETS.some(p => p.fmt === f));
@@ -2188,7 +2676,7 @@ function initDateFormatConfig() {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
-  tsInput.placeholder = '';
+  tsInput.placeholder = t(tab === 'sec' ? 'tsPlaceholderSec' : 'tsPlaceholderMs');
   msInputEl.style.display = tab === 'ms' ? '' : 'none';
   toggleNowPanel();
   if (calendarEl.classList.contains('open')) renderTimeWheels();
@@ -2214,6 +2702,12 @@ async function initTimestampInput() {
     tsInput.value = text;
   } else {
     tsInput.value = '';
+    const pe = parseDateEx(text);
+    if (pe) {
+      applyParsedToFields(pe);
+      renderConvert();
+      showSuggestions();
+    }
   }
   renderReverse();
 }
@@ -2280,6 +2774,7 @@ function initCustomTzSelector() {
   
   // 分钟数据
   const minutes = ['00', '15', '30', '45'];
+  let tzWheelsReady = false;
   
     // 构建小时滚轮
     function buildHourWheel() {
@@ -2675,6 +3170,10 @@ function initCustomTzSelector() {
     
     if (matchingTz) {
       inputTz.value = matchingTz.value;
+      if (tzWheelsReady) {
+        inputTzCustom = inputTz.value !== timezoneEl.value;
+        updateDateToTsTitle();
+      }
       renderConvert();
     }
   }
@@ -2690,6 +3189,10 @@ function initCustomTzSelector() {
     
     if (matchingTz) {
       inputTz.value = matchingTz.value;
+      if (tzWheelsReady) {
+        inputTzCustom = inputTz.value !== timezoneEl.value;
+        updateDateToTsTitle();
+      }
       renderConvert();
     }
   }
@@ -2699,6 +3202,8 @@ function initCustomTzSelector() {
     resetBtn.addEventListener('click', () => {
       const globalTz = timezoneEl.value || 'UTC';
       inputTz.value = globalTz;
+      inputTzCustom = false;
+      updateDateToTsTitle();
       console.log('重置到全局时区:', globalTz);
       
       // 重置时间校准
@@ -2776,10 +3281,44 @@ function initCustomTzSelector() {
   
   buildHourWheel();
   buildMinWheel();
+  tzWheelsReady = true;
+  inputTzCustom = inputTz.value !== timezoneEl.value;
+  updateDateToTsTitle();
   
   console.log('=== 时区滚轮构建完成 ===');
   
   console.log('双滚轮时区选择器初始化完成');
+}
+
+function updateTsToDateTitle() {
+  const el = document.querySelector('[data-i18n="tsToDate"]');
+  if (!el) return;
+  const value = timezoneEl.value || 'UTC';
+  const z = lookupZone(value);
+  const city = z
+    ? (lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn)
+    : value;
+  el.textContent = lang === 'zh'
+    ? `${t('tsToDate')}(${city})`
+    : `${t('tsToDate')} (${city})`;
+}
+
+function updateDateToTsTitle() {
+  const el = document.querySelector('[data-i18n="dateToTs"]');
+  if (!el) return;
+  let suffix;
+  if (inputTzEl.value && inputTzEl.value !== timezoneEl.value) {
+    suffix = t('customTag');
+  } else {
+    const value = timezoneEl.value || 'UTC';
+    const z = lookupZone(value);
+    suffix = z
+      ? (lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn)
+      : value;
+  }
+  el.textContent = lang === 'zh'
+    ? `${t('dateToTs')}(${suffix})`
+    : `${t('dateToTs')} (${suffix})`;
 }
 
 function applyLang() {
@@ -2820,9 +3359,11 @@ function applyLang() {
     return `<option value="${z.value}" title="${lang === 'zh' ? z.label : z.labelEn}${abbr ? ` (${abbr})` : ''}">${lang === 'zh' ? `${z.label}${abbr ? ` (${abbr})` : ''} ${off(z.value)}` : `${z.labelEn}${abbr ? ` (${abbr})` : ''} ${off(z.value)}`}</option>`;
   }).join('');
   inputTzEl.title = lang === 'zh' ? '输入时区：日期按此时区解析' : 'Input timezone: dates parsed in this zone';
-  if (inputTzEl.value !== timezoneEl.value) inputTzEl.value = timezoneEl.value;
+  if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) inputTzEl.value = timezoneEl.value;
   btnPause.textContent = paused ? t('resume') : t('pause');
-  tsInput.placeholder = '';
+  tsInput.placeholder = t(currentTab === 'sec' ? 'tsPlaceholderSec' : 'tsPlaceholderMs');
+  updateTsToDateTitle();
+  updateDateToTsTitle();
   dateInput.placeholder = t('datePlaceholder');
   timeInputEl.placeholder = t('timePlaceholder');
   msInputEl.placeholder = t('msPlaceholder');
@@ -2840,7 +3381,12 @@ function applyLang() {
 function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); }
 
 timezoneEl.addEventListener('change', () => { 
-  inputTzEl.value = timezoneEl.value; 
+  if (!inputTzCustom) {
+    inputTzEl.value = timezoneEl.value;
+    inputTzEl.dispatchEvent(new Event('change'));
+  }
+  updateDateToTsTitle();
+  updateTsToDateTitle();
   renderConvert(); 
   renderReverse(); 
   // 时区变化时重新校准时间
@@ -2850,17 +3396,17 @@ timezoneEl.addEventListener('change', () => {
   renderCalendar(); 
 });
 inputTzEl.addEventListener('change', () => { renderConvert(); });
-dateInput.addEventListener('input', () => { renderConvert(); showSuggestions(); });
+dateInput.addEventListener('input', () => { renderConvert(); showSuggestions(); syncClearBtns(); });
 dateInput.addEventListener('focus', () => { calendarEl.classList.remove('open'); showSuggestions(); });
 dateInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { renderConvert(); hideSuggestions(); calendarEl.classList.remove('open'); }
   if (e.key === 'Escape') { hideSuggestions(); calendarEl.classList.remove('open'); if (window.utools) utools.outPlugin(); }
 });
-timeInputEl.addEventListener('input', renderConvert);
+timeInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
 timeInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
-msInputEl.addEventListener('input', renderConvert);
+msInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
 msInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
-tsInput.addEventListener('input', renderReverse);
+tsInput.addEventListener('input', () => { renderReverse(); syncClearBtns(); });
 tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 
 $('#btn-calendar').addEventListener('click', () => {
@@ -2924,17 +3470,45 @@ $('#cal-ok').addEventListener('click', (e) => {
 dateSuggestEl.addEventListener('click', (e) => {
   const item = e.target.closest('.sg-item');
   if (!item) return;
-  applyFullDateStr(item.dataset.date);
   hideSuggestions();
   if (item.dataset.month) {
+    applyFullDateStr(item.dataset.date);
     const [y, mo0] = item.dataset.month.split('-').map(Number);
     calSelected = { y, mo: mo0, d: parseInt(item.dataset.date.slice(8, 10)) };
     setCalendarMonth(y, mo0);
     openCalendar();
     return;
   }
+  const pe = parseDateEx(dateInput.value.trim());
+  const wallStr = peWallStr(pe, inputTzEl.value || timezoneEl.value);
+  if (pe && (pe.mode === 'abs' || wallStr === item.dataset.date)) {
+    applyParsedToFields(pe);
+  } else {
+    applyFullDateStr(item.dataset.date);
+  }
   renderConvert();
 });
+
+if (btnDateClear) {
+  btnDateClear.addEventListener('click', () => {
+    dateInput.value = '';
+    timeInputEl.value = '';
+    msInputEl.value = '';
+    hideSuggestions();
+    calendarEl.classList.remove('open');
+    syncClearBtns();
+    renderConvert();
+    dateInput.focus();
+  });
+}
+if (btnTsClear) {
+  btnTsClear.addEventListener('click', () => {
+    tsInput.value = '';
+    syncClearBtns();
+    renderReverse();
+    tsInput.focus();
+  });
+}
 
 document.addEventListener('click', (e) => {
   if (!dateFieldEl.contains(e.target)) {
@@ -2958,7 +3532,7 @@ document.addEventListener('click', (e) => {
   const block = e.target.closest('.result-block');
   if (block) {
     const val = block.querySelector('.result-value');
-    if (val && val.dataset.value) copyText(val.dataset.value, null);
+    if (val && val.dataset.value) copyText(val.textContent.trim(), null);
     return;
   }
   const item = e.target.closest('.now-item.clickable');
@@ -3127,6 +3701,7 @@ function initCsb() {
 }
 
 initTzConfig();
+initDateParseConfig();
 renderDateFormatList();
 applyLang();
 switchTab('sec');
@@ -3140,8 +3715,16 @@ if (window.utools) {
     if (!p) { initTimestampInput(); tsInput.focus(); return; }
     if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
     else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
-    else if (parseDate(p)) { applyFullDateStr(p); timeInputEl.focus(); renderConvert(); }
-    else { initTimestampInput(); }
+    else {
+      const pe = parseDateEx(p);
+      if (pe) {
+        applyParsedToFields(pe);
+        timeInputEl.focus();
+        renderConvert();
+      } else {
+        initTimestampInput();
+      }
+    }
     tsInput.focus();
   });
   try { utools.setExpendHeight(560); } catch (e) {}
