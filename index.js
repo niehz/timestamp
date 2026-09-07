@@ -2033,14 +2033,14 @@ function updateNow() {
     lastUpdateTime = now;
   }
   
-  // 为微秒和纳秒添加合理的变动
-  // 微秒在毫秒基础上增加一些随机变化（0-999之间的随机数）
-  const simulatedUs = lastMs * 1000 + Math.floor(Math.random() * 1000);
-  // 纳秒在微秒基础上增加一些随机变化（0-999之间的随机数）
-  // 使用字符串操作来确保最后两位不是00
-  const nsBase = simulatedUs * 1000;
-  const nsLastThree = Math.floor(Math.random() * 1000);
-  const simulatedNs = nsBase + nsLastThree;
+  // 为微秒和纳秒添加随机数填充（不需要精确计算）
+  // 微秒：在秒级基础上添加6位随机数
+  const usRandom = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+  const simulatedUs = lastSec.toString() + usRandom;
+  
+  // 纳秒：在秒级基础上添加9位随机数
+  const nsRandom = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
+  const simulatedNs = lastSec.toString() + nsRandom;
   
   // 更新显示
   const displayDate = new Date(lastMs);
