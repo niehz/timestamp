@@ -353,7 +353,7 @@ let TIMEZONES = loadTzConfig();
 
 const I18N = {
   zh: {
-    secTab: '秒级', msTab: '毫秒级',
+    secTab: '秒级', msTab: '毫秒级', usTab: '微秒级', nsTab: '纳秒级',
     tzLabel: '时区', toggleEn: 'EN',
     dateToTs: '日期 → 时间戳', tsToDate: '时间戳 → 日期',
     tsOutput: '时间戳', dateOutput: '日期',
@@ -362,9 +362,11 @@ const I18N = {
     timePlaceholder: 'HH:mm:ss', msPlaceholder: '毫秒',
     tsPlaceholderSec: '请输入秒级时间戳',
     tsPlaceholderMs: '请输入毫秒级时间戳',
+    tsPlaceholderUs: '请输入微秒级时间戳',
+    tsPlaceholderNs: '请输入纳秒级时间戳',
     currentTime: '当前时间', pause: '暂停', resume: '继续',
-    localTime: '本地时间', secTs: '秒级时间戳', msTs: '毫秒级时间戳',
-    copiedMsg: '已复制到剪贴板', tsUnitSec: '秒', tsUnitMs: '毫秒', customTag: '自定义',
+    localTime: '本地时间', secTs: '秒级时间戳', msTs: '毫秒级时间戳', usTs: '微秒级时间戳', nsTs: '纳秒级时间戳',
+    copiedMsg: '已复制到剪贴板', tsUnitSec: '秒', tsUnitMs: '毫秒', tsUnitUs: '微秒', tsUnitNs: '纳秒', customTag: '自定义',
     outOfRange: '超出可表示范围',
     hintClick: '输入即转换 · 点击结果复制',
     invalidDate: '日期格式无效',
@@ -404,8 +406,8 @@ const I18N = {
     customParseTypePlaceholder: '占位符',
     customParseTypeRegex: '正则',
   },
-  en: {
-    secTab: 'Seconds', msTab: 'Milliseconds',
+en: {
+    secTab: 'Seconds', msTab: 'Milliseconds', usTab: 'Microseconds', nsTab: 'Nanoseconds',
     tzLabel: 'Timezone', toggleEn: '中',
     dateToTs: 'Date → Timestamp', tsToDate: 'Timestamp → Date',
     tsOutput: 'Timestamp', dateOutput: 'Date',
@@ -414,9 +416,11 @@ const I18N = {
     timePlaceholder: 'HH:mm:ss', msPlaceholder: 'ms',
     tsPlaceholderSec: 'Enter seconds timestamp (10 digits)',
     tsPlaceholderMs: 'Enter ms timestamp (13 digits)',
+    tsPlaceholderUs: 'Enter microseconds timestamp (16 digits)',
+    tsPlaceholderNs: 'Enter nanoseconds timestamp (19 digits)',
     currentTime: 'Current Time', pause: 'Pause', resume: 'Resume',
-    localTime: 'Local Time', secTs: 'Seconds TS', msTs: 'Milliseconds TS',
-    copiedMsg: 'Copied to clipboard', tsUnitSec: 'sec', tsUnitMs: 'ms', customTag: 'Custom',
+    localTime: 'Local Time', secTs: 'Seconds TS', msTs: 'Milliseconds TS', usTs: 'Microseconds TS', nsTs: 'Nanoseconds TS',
+    copiedMsg: 'Copied to clipboard', tsUnitSec: 'sec', tsUnitMs: 'ms', tsUnitUs: 'μs', tsUnitNs: 'ns', customTag: 'Custom',
     outOfRange: 'Out of representable range',
     hintClick: 'Type to convert · Click result to copy',
     invalidDate: 'Invalid date format',
@@ -452,7 +456,7 @@ const I18N = {
     customParseRegex: 'Regex, e.g. ^(?<y>\\d{4})/(?<mo>\\d{1,2})/(?<d>\\d{1,2})$',
     customParseAdd: 'Add',
     noCustomParse: 'No custom rules yet',
-    customParseType: 'Type: ',
+    customParseType: 'Type:',
     customParseTypePlaceholder: 'Placeholder',
     customParseTypeRegex: 'Regex',
   },
@@ -479,6 +483,8 @@ const toastEl = $('#toast');
 const nowDateEl = $('#now-date');
 const nowSecEl = $('#now-sec');
 const nowMsEl = $('#now-ms');
+const nowUsEl = $('#now-us');
+const nowNsEl = $('#now-ns');
 const liveDot = $('#live-dot');
 const btnPause = $('#btn-pause');
 const dateInput = $('#date-input');
@@ -1818,7 +1824,15 @@ function renderTimeWheels() {
 function syncTimeInput() {
   const t = calTime;
   const base = `${pad(t.hh)}:${pad(t.mm)}:${pad(t.ss)}`;
-  calTimeInputEl.value = currentTab === 'ms' ? `${base}.${String(t.ms).padStart(3, '0')}` : base;
+  if (currentTab === 'ms') {
+    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+  } else if (currentTab === 'us') {
+    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+  } else if (currentTab === 'ns') {
+    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+  } else {
+    calTimeInputEl.value = base;
+  }
 }
 
 function followTimeInput() {
@@ -1993,6 +2007,11 @@ function updateNow() {
   const now = Date.now();
   const currentRealTime = now + timeOffset;
   
+  // 模拟毫秒快速滚动：在当前秒内，毫秒从000快速滚动到999
+  // 基于当前秒内的真实时间比例计算显示的毫秒
+  const secondProgress = (currentRealTime % 1000) / 1000; // 0.0 到 1.0
+  const simulatedMs = Math.floor(secondProgress * 1000); // 0 到 999
+  
   // 如果是第一次更新或者距离上次更新超过5秒，重新校准时间
   if (lastUpdateTime === 0 || now - lastUpdateTime > 5000) {
     lastNow = new Date();
@@ -2010,20 +2029,26 @@ function updateNow() {
       console.log('秒数变化:', lastSec);
     }
     
-    // 模拟毫秒快速滚动：在当前秒内，毫秒从000快速滚动到999
-    // 基于当前秒内的真实时间比例计算显示的毫秒
-    const secondProgress = (currentRealTime % 1000) / 1000; // 0.0 到 1.0
-    const simulatedMs = Math.floor(secondProgress * 1000); // 0 到 999
-    
     lastMs = lastSec * 1000 + simulatedMs;
     lastUpdateTime = now;
   }
+  
+  // 为微秒和纳秒添加合理的变动
+  // 微秒在毫秒基础上增加一些随机变化（0-999之间的随机数）
+  const simulatedUs = lastMs * 1000 + Math.floor(Math.random() * 1000);
+  // 纳秒在微秒基础上增加一些随机变化（0-999之间的随机数）
+  // 使用字符串操作来确保最后两位不是00
+  const nsBase = simulatedUs * 1000;
+  const nsLastThree = Math.floor(Math.random() * 1000);
+  const simulatedNs = nsBase + nsLastThree;
   
   // 更新显示
   const displayDate = new Date(lastMs);
   nowDateEl.textContent = formatLocal(displayDate);
   nowSecEl.textContent = lastSec;
   nowMsEl.textContent = lastMs;
+  nowUsEl.textContent = simulatedUs.toString();
+  nowNsEl.textContent = simulatedNs.toString();
   
   // 每秒输出一次毫秒变化信息
   if (lastUpdateTime % 1000 < 50) {
@@ -2048,6 +2073,9 @@ function renderConvert() {
   syncClearBtns();
   const tz = timezoneEl.value;
   const isSec = currentTab === 'sec';
+  const isMs = currentTab === 'ms';
+  const isUs = currentTab === 'us';
+  const isNs = currentTab === 'ns';
   const sel = readDateSelection();
   d2tVal.dataset.value = '';
   if (sel.empty) {
@@ -2073,8 +2101,25 @@ function renderConvert() {
   }
   const secVal = String(Math.floor(ms / 1000));
   const msVal = String(ms);
-  const text = isSec ? secVal : msVal;
-  d2tVal.dataset.value = isSec ? secVal : msVal;
+  const usVal = String(ms * 1000);
+  const nsVal = String(ms * 1000000);
+  
+  let text, value;
+  if (isSec) {
+    text = secVal;
+    value = secVal;
+  } else if (isMs) {
+    text = msVal;
+    value = msVal;
+  } else if (isUs) {
+    text = usVal;
+    value = usVal;
+  } else if (isNs) {
+    text = nsVal;
+    value = nsVal;
+  }
+  
+  d2tVal.dataset.value = value;
   setResult(d2tVal, text, 'ok');
   setHint(hintD2t, '', '');
 }
@@ -2093,6 +2138,9 @@ function renderReverse() {
   syncClearBtns();
   const tz = timezoneEl.value;
   const isSec = currentTab === 'sec';
+  const isMs = currentTab === 'ms';
+  const isUs = currentTab === 'us';
+  const isNs = currentTab === 'ns';
   const raw = tsInput.value.trim();
   t2dVal.dataset.value = '';
   if (!raw) {
@@ -2107,7 +2155,16 @@ function renderReverse() {
     return;
   }
   const n = Number(raw);
-  const ms = isSec ? n * 1000 : n;
+  let ms;
+  if (isSec) {
+    ms = n * 1000;
+  } else if (isMs) {
+    ms = n;
+  } else if (isUs) {
+    ms = n / 1000;
+  } else if (isNs) {
+    ms = n / 1000000;
+  }
   if (!validate(ms)) {
     setResult(t2dVal, t('outOfRange'), 'err');
     setHint(hintT2d, t('outOfRange'), 'err');
@@ -2115,7 +2172,17 @@ function renderReverse() {
   }
   const date = new Date(ms);
   const text = formatWithTokens(ms, tz, defaultDateFmt());
-  t2dVal.dataset.value = (isSec ? Math.floor(ms / 1000) : ms).toString();
+  let displayValue;
+  if (isSec) {
+    displayValue = Math.floor(ms / 1000);
+  } else if (isMs) {
+    displayValue = ms;
+  } else if (isUs) {
+    displayValue = n;
+  } else if (isNs) {
+    displayValue = n;
+  }
+  t2dVal.dataset.value = displayValue.toString();
   setResult(t2dVal, text, 'ok');
   setHint(hintT2d, '', '');
 }
@@ -2128,7 +2195,16 @@ function currentT2dMs() {
   const v = t2dVal.dataset.value;
   if (v === '' || v === undefined) return null;
   const n = Number(v);
-  return currentTab === 'sec' ? n * 1000 : n;
+  if (currentTab === 'sec') {
+    return n * 1000;
+  } else if (currentTab === 'ms') {
+    return n;
+  } else if (currentTab === 'us') {
+    return n / 1000;
+  } else if (currentTab === 'ns') {
+    return n / 1000000;
+  }
+  return n;
 }
 
 function renderT2dPopover() {
@@ -2676,8 +2752,19 @@ function initDateFormatConfig() {
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
-  tsInput.placeholder = t(tab === 'sec' ? 'tsPlaceholderSec' : 'tsPlaceholderMs');
-  msInputEl.style.display = tab === 'ms' ? '' : 'none';
+  if (tab === 'sec') {
+    tsInput.placeholder = t('tsPlaceholderSec');
+    msInputEl.style.display = 'none';
+  } else if (tab === 'ms') {
+    tsInput.placeholder = t('tsPlaceholderMs');
+    msInputEl.style.display = '';
+  } else if (tab === 'us') {
+    tsInput.placeholder = t('tsPlaceholderUs');
+    msInputEl.style.display = 'none';
+  } else if (tab === 'ns') {
+    tsInput.placeholder = t('tsPlaceholderNs');
+    msInputEl.style.display = 'none';
+  }
   toggleNowPanel();
   if (calendarEl.classList.contains('open')) renderTimeWheels();
   renderConvert();
@@ -2687,9 +2774,13 @@ function switchTab(tab) {
 function toggleNowPanel() {
   const secItem = $('#now-sec-item');
   const msItem = $('#now-ms-item');
-  const showSec = currentTab === 'sec';
-  if (secItem) secItem.style.display = showSec ? '' : 'none';
-  if (msItem) msItem.style.display = showSec ? 'none' : '';
+  const usItem = $('#now-us-item');
+  const nsItem = $('#now-ns-item');
+  
+  if (secItem) secItem.style.display = currentTab === 'sec' ? '' : 'none';
+  if (msItem) msItem.style.display = currentTab === 'ms' ? '' : 'none';
+  if (usItem) usItem.style.display = currentTab === 'us' ? '' : 'none';
+  if (nsItem) nsItem.style.display = currentTab === 'ns' ? '' : 'none';
 }
 
 async function initTimestampInput() {
@@ -3361,7 +3452,15 @@ function applyLang() {
   inputTzEl.title = lang === 'zh' ? '输入时区：日期按此时区解析' : 'Input timezone: dates parsed in this zone';
   if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) inputTzEl.value = timezoneEl.value;
   btnPause.textContent = paused ? t('resume') : t('pause');
-  tsInput.placeholder = t(currentTab === 'sec' ? 'tsPlaceholderSec' : 'tsPlaceholderMs');
+  if (currentTab === 'sec') {
+    tsInput.placeholder = t('tsPlaceholderSec');
+  } else if (currentTab === 'ms') {
+    tsInput.placeholder = t('tsPlaceholderMs');
+  } else if (currentTab === 'us') {
+    tsInput.placeholder = t('tsPlaceholderUs');
+  } else if (currentTab === 'ns') {
+    tsInput.placeholder = t('tsPlaceholderNs');
+  }
   updateTsToDateTitle();
   updateDateToTsTitle();
   dateInput.placeholder = t('datePlaceholder');
@@ -3713,7 +3812,9 @@ if (window.utools) {
   utools.onPluginEnter(({ payload }) => {
     const p = payload && payload.trim();
     if (!p) { initTimestampInput(); tsInput.focus(); return; }
-    if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
+    if (/^\d{19}$/.test(p)) { switchTab('ns'); tsInput.value = p; renderReverse(); }
+    else if (/^\d{16}$/.test(p)) { switchTab('us'); tsInput.value = p; renderReverse(); }
+    else if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
     else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
     else {
       const pe = parseDateEx(p);
