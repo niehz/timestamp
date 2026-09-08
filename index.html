@@ -195,14 +195,13 @@
           <button type="button" class="config-tab active" data-tab="tz" data-i18n="tabTimezone">时区配置</button>
           <button type="button" class="config-tab" data-tab="fmt" data-i18n="tabDateFormat">日期格式</button>
           <button type="button" class="config-tab" data-tab="parse" data-i18n="tabDateParse">日期解析</button>
+          <button type="button" class="config-tab" data-tab="sys" data-i18n="tabSystem">系统设置</button>
         </div>
-        <span class="modal-hint" id="hint-tz" data-i18n="tzConfigDesc">勾选要在时区下拉框中显示的时区</span>
-        <span class="modal-hint hidden" id="hint-fmt" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</span>
-        <span class="modal-hint hidden" id="hint-parse" data-i18n="dateParseDesc">勾选要启用的日期解析格式，无关键字时自动识别日期字符串</span>
         <button class="modal-close" id="modal-close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="config-pane" id="pane-tz">
+          <p class="config-desc" data-i18n="tzConfigDesc">勾选要在时区下拉框中显示的时区</p>
           <div class="config-section">
             <div class="timezone-search">
               <input type="text" id="tz-search" placeholder="搜索时区名称...">
@@ -212,7 +211,6 @@
                 <button type="button" class="tz-filter-btn" data-value="unselected" data-i18n="filterUnselected">未选中</button>
               </div>
               <div class="timezone-actions">
-                <button class="btn-primary" id="save-tz-config" data-i18n="save">保存配置</button>
                 <button class="btn-secondary" id="reset-tz-config" data-i18n="reset">重置默认</button>
               </div>
             </div>
@@ -243,6 +241,7 @@
         </div>
 
         <div class="config-pane hidden" id="pane-fmt">
+          <p class="config-desc" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</p>
           <div class="config-section">
             <div class="timezone-search">
               <input type="text" id="date-fmt-search" placeholder="搜索格式（别名/格式串）...">
@@ -271,6 +270,7 @@
         </div>
 
         <div class="config-pane hidden" id="pane-parse">
+          <p class="config-desc" data-i18n="dateParseDesc">勾选要启用的日期解析格式，无关键字时自动识别日期字符串</p>
           <div class="config-section">
             <div class="timezone-search">
               <input type="text" id="date-parse-search" placeholder="搜索格式...">
@@ -312,6 +312,45 @@
               <button type="button" class="tz-filter-btn active" data-value="us" data-i18n="styleUs">美式 MM/DD</button>
               <button type="button" class="tz-filter-btn" data-value="eu" data-i18n="styleEu">欧式 DD/MM</button>
             </div>
+          </div>
+        </div>
+
+        <div class="config-pane hidden" id="pane-sys">
+          <p class="config-desc" data-i18n="sysConfigDesc">设置默认TAB页、精度显示与主题</p>
+          <div class="config-section">
+            <h4 data-i18n="sysDefaultTab">默认进入TAB页</h4>
+            <p class="config-desc" data-i18n="sysDefaultTabDesc">选择插件打开时默认进入的TAB页</p>
+            <div class="tz-filter" id="sys-default-tab">
+              <button type="button" class="tz-filter-btn" data-value="sec" data-i18n="secTab">秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ms" data-i18n="msTab">毫秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="us" data-i18n="usTab">微秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ns" data-i18n="nsTab">纳秒级</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 data-i18n="sysShowPrecision">精度显示</h4>
+            <p class="config-desc" data-i18n="sysShowPrecisionDesc">精度层层递进：选中纳秒显示毫秒+微秒+纳秒，选中微秒显示毫秒+微秒，选中毫秒仅显示毫秒，选中秒级则只显示时分秒</p>
+            <div class="tz-filter" id="sys-precision">
+              <button type="button" class="tz-filter-btn" data-value="sec" data-i18n="secTab">秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ms" data-i18n="msTab">毫秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="us" data-i18n="usTab">微秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ns" data-i18n="nsTab">纳秒级</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 data-i18n="sysTheme">主题</h4>
+            <p class="config-desc" data-i18n="sysThemeDesc">自动跟随系统外观，或固定使用黑夜/白天主题</p>
+            <div class="tz-filter" id="sys-theme">
+              <button type="button" class="tz-filter-btn" data-value="auto" data-i18n="sysThemeAuto">自动</button>
+              <button type="button" class="tz-filter-btn" data-value="dark" data-i18n="sysThemeDark">黑夜</button>
+              <button type="button" class="tz-filter-btn" data-value="light" data-i18n="sysThemeLight">白天</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <button class="btn-secondary" id="reset-sys-config" data-i18n="reset">重置默认</button>
           </div>
         </div>
       </div>

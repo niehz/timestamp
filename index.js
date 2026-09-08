@@ -351,6 +351,50 @@ function zoneAliases(z) {
 
 let TIMEZONES = loadTzConfig();
 
+const SYS_DEFAULTS = { defaultTab: 'sec', precision: 'ns', theme: 'auto' };
+let SYS_SETTINGS = loadSysSettings();
+function loadSysSettings() {
+  let s = null;
+  try {
+    const raw = localStorage.getItem('sys_settings');
+    if (raw) s = JSON.parse(raw) || {};
+  } catch (e) {}
+  if (typeof s !== 'object' || s === null) s = {};
+  if (s.precision == null) {
+    s.precision = s.showNs ? 'ns' : s.showUs ? 'us' : s.showMs ? 'ms' : 'sec';
+  }
+  delete s.showMs; delete s.showUs; delete s.showNs;
+  s = { ...SYS_DEFAULTS, ...s };
+  if (!['sec', 'ms', 'us', 'ns'].includes(s.defaultTab)) s.defaultTab = SYS_DEFAULTS.defaultTab;
+  if (!['sec', 'ms', 'us', 'ns'].includes(s.precision)) s.precision = SYS_DEFAULTS.precision;
+  if (!['auto', 'dark', 'light'].includes(s.theme)) s.theme = SYS_DEFAULTS.theme;
+  return s;
+}
+const PRECISION_ORDER = { sec: 0, ms: 1, us: 2, ns: 3 };
+function precisionGe(level) {
+  return (PRECISION_ORDER[SYS_SETTINGS.precision] || 0) >= PRECISION_ORDER[level];
+}
+function applyTheme() {
+  let light = SYS_SETTINGS.theme === 'light';
+  if (SYS_SETTINGS.theme === 'auto' && window.matchMedia) {
+    light = window.matchMedia('(prefers-color-scheme: light)').matches;
+  }
+  document.body.classList.toggle('theme-light', light);
+  document.body.classList.toggle('theme-dark', !light);
+}
+function initThemeWatcher() {
+  if (!window.matchMedia || typeof window.matchMedia !== 'function') return;
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  const onChange = () => {
+    if (SYS_SETTINGS.theme === 'auto') applyTheme();
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange);
+}
+function saveSysSettings() {
+  try { localStorage.setItem('sys_settings', JSON.stringify(SYS_SETTINGS)); } catch (e) {}
+}
+
 const I18N = {
   zh: {
     secTab: '秒级', msTab: '毫秒级', usTab: '微秒级', nsTab: '纳秒级',
@@ -405,6 +449,18 @@ const I18N = {
     customParseType: '类型：',
     customParseTypePlaceholder: '占位符',
     customParseTypeRegex: '正则',
+    tabSystem: '系统设置',
+    sysConfigDesc: '设置默认TAB页、精度显示与主题',
+    sysDefaultTab: '默认进入TAB页',
+    sysDefaultTabDesc: '选择插件打开时默认进入的TAB页',
+    sysShowPrecision: '精度显示',
+    sysShowPrecisionDesc: '精度层层递进：选中纳秒显示毫秒+微秒+纳秒，选中微秒显示毫秒+微秒，选中毫秒仅显示毫秒，选中秒级则只显示时分秒',
+    sysTheme: '主题',
+    sysThemeDesc: '自动跟随系统外观，或固定使用黑夜/白天主题',
+    sysThemeAuto: '自动',
+    sysThemeDark: '黑夜',
+    sysThemeLight: '白天',
+    sysReset: '已恢复默认系统设置',
   },
 en: {
     secTab: 'Seconds', msTab: 'Milliseconds', usTab: 'Microseconds', nsTab: 'Nanoseconds',
@@ -459,6 +515,18 @@ en: {
     customParseType: 'Type:',
     customParseTypePlaceholder: 'Placeholder',
     customParseTypeRegex: 'Regex',
+    tabSystem: 'System',
+    sysConfigDesc: 'Default tab, precision visibility and theme',
+    sysDefaultTab: 'Default Tab',
+    sysDefaultTabDesc: 'Choose the tab shown when the plugin opens',
+    sysShowPrecision: 'Precision Visibility',
+    sysShowPrecisionDesc: 'Progressive precision: choosing Nanoseconds shows ms+us+ns, Microseconds shows ms+us, Milliseconds shows only ms, Seconds only shows HH:mm:ss',
+    sysTheme: 'Theme',
+    sysThemeDesc: 'Follow the system preference, or force Night / Day theme',
+    sysThemeAuto: 'Auto',
+    sysThemeDark: 'Night',
+    sysThemeLight: 'Day',
+    sysReset: 'Reset to default system settings',
   },
 };
 
@@ -572,6 +640,18 @@ function saveTzConfig(selectedValues) {
   localStorage.setItem('tz_selected', JSON.stringify(selectedValues));
 }
 
+function commitTzConfig() {
+  const selected = DEFAULT_TZ_LIST.map(z => z.value).filter(v => tzConfigSelected.has(v)).concat(
+    getAllZones().filter(z => tzConfigSelected.has(z.value) && !DEFAULT_TZ_LIST.some(d => d.value === z.value)).map(z => z.value)
+  );
+  tzConfigSelected.forEach(v => { if (!selected.includes(v)) selected.push(v); });
+  saveTzConfig(selected);
+  TIMEZONES = [{ label: '本地时区', labelEn: 'Local', value: '' }, ...selected.map(v =>
+    lookupZone(v) || { label: v, labelEn: v, value: v }
+  )];
+  applyLang();
+}
+
 function resetTzConfig() {
   localStorage.removeItem('tz_selected');
   TIMEZONES = [{ label: '本地时区', labelEn: 'Local', value: '' }, ...DEFAULT_TZ_LIST];
@@ -584,7 +664,6 @@ const tzConfigModal = $('#tz-config-modal');
 const tzConfigListEl = $('#timezone-list');
 const tzSearchEl = $('#tz-search');
 const tzFilterEl = $('#tz-filter');
-const btnSaveTzConfig = $('#save-tz-config');
 const btnResetTzConfig = $('#reset-tz-config');
 const btnTzConfig = $('#tz-config-btn');
 const modalCloseEl = $('#modal-close');
@@ -677,6 +756,7 @@ function renderTzConfigList() {
           item.classList.add('selected');
         }
         item.querySelector('.tz-check').textContent = tzConfigSelected.has(val) ? '✓' : '';
+        commitTzConfig();
       });
     });
   }
@@ -750,6 +830,7 @@ function addCustomTimezone() {
   if (customTzIanaEl) customTzIanaEl.value = '';
   renderCustomTzList();
   renderTzConfigList();
+  commitTzConfig();
   toast(lang === 'zh' ? '自定义时区已添加' : 'Custom timezone added');
 }
 
@@ -763,6 +844,7 @@ function removeCustomTimezone(value) {
   tzConfigSelected.delete(value);
   renderCustomTzList();
   renderTzConfigList();
+  commitTzConfig();
 }
 
 function offsetInputFromValue(value) {
@@ -879,6 +961,7 @@ function saveEditCustomTimezone(value, item) {
   tzEditingValue = null;
   renderCustomTzList();
   renderTzConfigList();
+  commitTzConfig();
   toast(lang === 'zh' ? '自定义时区已更新' : 'Custom timezone updated');
 }
 
@@ -898,7 +981,7 @@ function applyModalI18n() {
 
 function initTzConfig() {
   const configTabsEl = $('#config-tabs');
-  const configPanes = { tz: $('#pane-tz'), fmt: $('#pane-fmt'), parse: $('#pane-parse') };
+  const configPanes = { tz: $('#pane-tz'), fmt: $('#pane-fmt'), parse: $('#pane-parse'), sys: $('#pane-sys') };
   if (configTabsEl) {
     configTabsEl.querySelectorAll('.config-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -908,12 +991,6 @@ function initTzConfig() {
         Object.entries(configPanes).forEach(([k, pane]) => {
           if (pane) pane.classList.toggle('hidden', k !== name);
         });
-        const hintTz = $('#hint-tz');
-        const hintFmt = $('#hint-fmt');
-        const hintParse = $('#hint-parse');
-        if (hintTz) hintTz.classList.toggle('hidden', name !== 'tz');
-        if (hintFmt) hintFmt.classList.toggle('hidden', name !== 'fmt');
-        if (hintParse) hintParse.classList.toggle('hidden', name !== 'parse');
       });
     });
   }
@@ -925,6 +1002,7 @@ function initTzConfig() {
       renderDateParseList();
       renderCustomParseRules();
       updateParseStyleBtns();
+      renderSysConfig();
     });
   }
   if (modalCloseEl) {
@@ -937,21 +1015,6 @@ function initTzConfig() {
     btnCustomTzAdd.addEventListener('click', () => addCustomTimezone());
     [customTzCnEl, customTzEnEl, customTzOffsetEl].forEach(el => {
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCustomTimezone(); });
-    });
-  }
-  if (btnSaveTzConfig) {
-    btnSaveTzConfig.addEventListener('click', () => {
-      const selected = DEFAULT_TZ_LIST.map(z => z.value).filter(v => tzConfigSelected.has(v)).concat(
-        getAllZones().filter(z => tzConfigSelected.has(z.value) && !DEFAULT_TZ_LIST.some(d => d.value === z.value)).map(z => z.value)
-      );
-      tzConfigSelected.forEach(v => { if (!selected.includes(v)) selected.push(v); });
-      saveTzConfig(selected);
-      TIMEZONES = [{ label: '本地时区', labelEn: 'Local', value: '' }, ...selected.map(v =>
-        lookupZone(v) || { label: v, labelEn: v, value: v }
-      )];
-      tzConfigModal.classList.remove('show');
-      applyLang();
-      toast(lang === 'zh' ? '时区配置已保存' : 'Timezone config saved');
     });
   }
   if (btnResetTzConfig) {
@@ -969,6 +1032,57 @@ function initTzConfig() {
       });
     });
   }
+}
+
+function setFilterValue(id, value) {
+  const group = document.getElementById(id);
+  if (!group) return;
+  group.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.value === value));
+}
+function getFilterValue(id) {
+  const group = document.getElementById(id);
+  const active = group && group.querySelector('.tz-filter-btn.active');
+  return active ? active.dataset.value : null;
+}
+function renderSysConfig() {
+  setFilterValue('sys-default-tab', SYS_SETTINGS.defaultTab);
+  setFilterValue('sys-precision', SYS_SETTINGS.precision);
+  setFilterValue('sys-theme', SYS_SETTINGS.theme);
+}
+function applySysField(id, value) {
+  if (id === 'sys-default-tab') {
+    SYS_SETTINGS.defaultTab = value || SYS_DEFAULTS.defaultTab;
+  } else if (id === 'sys-precision') {
+    SYS_SETTINGS.precision = value || SYS_DEFAULTS.precision;
+  } else if (id === 'sys-theme') {
+    SYS_SETTINGS.theme = value || SYS_DEFAULTS.theme;
+  }
+  saveSysSettings();
+  if (id === 'sys-precision') switchTab(currentTab);
+  else if (id === 'sys-theme') applyTheme();
+}
+function resetSysConfig() {
+  SYS_SETTINGS = { ...SYS_DEFAULTS };
+  saveSysSettings();
+  renderSysConfig();
+  applyTheme();
+  switchTab(currentTab);
+  toast(t('sysReset'));
+}
+function initSysConfig() {
+  const resetBtn = $('#reset-sys-config');
+  if (resetBtn) resetBtn.addEventListener('click', resetSysConfig);
+  ['sys-default-tab', 'sys-precision', 'sys-theme'].forEach(id => {
+    const g = document.getElementById(id);
+    if (!g) return;
+    g.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tz-filter-btn');
+      if (!btn || btn.classList.contains('active')) return;
+      g.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applySysField(id, btn.dataset.value);
+    });
+  });
 }
 
 function formatLocal(date) {
@@ -1858,9 +1972,9 @@ function renderTimeWheels() {
   const isMsTab = currentTab === 'ms';
   const isUsTab = currentTab === 'us';
   const isNsTab = currentTab === 'ns';
-  const showMs = isMsTab || isUsTab || isNsTab;
-  const showUs = isUsTab || isNsTab;
-  const showNs = isNsTab;
+  const showMs = (isMsTab || isUsTab || isNsTab) && precisionGe('ms');
+  const showUs = (isUsTab || isNsTab) && precisionGe('us');
+  const showNs = isNsTab && precisionGe('ns');
   wheelMs.style.display = showMs ? '' : 'none';
   const msCol = wheelMs.parentNode;
   if (msCol) msCol.style.display = showMs ? '' : 'none';
@@ -2111,10 +2225,15 @@ function updateNow() {
   // 更新显示
   const displayDate = new Date(lastMs);
   nowDateEl.textContent = formatLocal(displayDate);
+  nowDateEl.title = formatLocal(displayDate);
   nowSecEl.textContent = lastSec;
   nowMsEl.textContent = lastMs;
   nowUsEl.textContent = simulatedUs.toString();
   nowNsEl.textContent = simulatedNs.toString();
+  nowSecEl.title = String(lastSec);
+  nowMsEl.title = String(lastMs);
+  nowUsEl.title = simulatedUs.toString();
+  nowNsEl.title = simulatedNs.toString();
   
   // 每秒输出一次毫秒变化信息
   if (lastUpdateTime % 1000 < 50) {
@@ -2823,6 +2942,7 @@ function switchTab(tab) {
   currentTab = tab;
   document.body.classList.toggle('tab-us', tab === 'us');
   document.body.classList.toggle('tab-ns', tab === 'ns');
+  document.body.classList.toggle('prec-us', precisionGe('us'));
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
   if (tab === 'sec') {
     tsInput.placeholder = t('tsPlaceholderSec');
@@ -2833,9 +2953,9 @@ function switchTab(tab) {
   } else if (tab === 'ns') {
     tsInput.placeholder = t('tsPlaceholderNs');
   }
-  msInputEl.style.display = (tab === 'ms' || tab === 'us' || tab === 'ns') ? '' : 'none';
-  usInputEl.style.display = (tab === 'us' || tab === 'ns') ? '' : 'none';
-  nsInputEl.style.display = tab === 'ns' ? '' : 'none';
+  msInputEl.style.display = (tab === 'ms' || tab === 'us' || tab === 'ns') && precisionGe('ms') ? '' : 'none';
+  usInputEl.style.display = (tab === 'us' || tab === 'ns') && precisionGe('us') ? '' : 'none';
+  nsInputEl.style.display = tab === 'ns' && precisionGe('ns') ? '' : 'none';
   timeInputEl.placeholder = t('timePlaceholder');
   reformatTimeInput();
   toggleNowPanel();
@@ -2856,11 +2976,11 @@ function reformatTimeInput() {
       nsInputEl.value = String(+f.slice(6, 9)).padStart(3, '0');
       parts[2] = parts[2].split('.')[0];
     }
-    if (currentTab === 'us') {
+    if (currentTab === 'us' && precisionGe('us')) {
       if (!usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
     } else if (currentTab === 'ns') {
-      if (!usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-      if (!nsInputEl.value.trim()) nsInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      if (precisionGe('us') && !usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      if (precisionGe('ns') && !nsInputEl.value.trim()) nsInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
     }
     timeInputEl.value = `${parts[0]}:${parts[1]}${parts[2] ? ':' + parts[2] : ''}`;
   }
@@ -3563,9 +3683,9 @@ function applyLang() {
   msInputEl.placeholder = t('msPlaceholder');
   usInputEl.placeholder = 'us';
   nsInputEl.placeholder = 'ns';
-  msInputEl.style.display = (currentTab === 'ms' || currentTab === 'us' || currentTab === 'ns') ? '' : 'none';
-  usInputEl.style.display = (currentTab === 'us' || currentTab === 'ns') ? '' : 'none';
-  nsInputEl.style.display = currentTab === 'ns' ? '' : 'none';
+  msInputEl.style.display = (currentTab === 'ms' || currentTab === 'us' || currentTab === 'ns') && precisionGe('ms') ? '' : 'none';
+  usInputEl.style.display = (currentTab === 'us' || currentTab === 'ns') && precisionGe('us') ? '' : 'none';
+  nsInputEl.style.display = currentTab === 'ns' && precisionGe('ns') ? '' : 'none';
   if (tzSearchEl) tzSearchEl.placeholder = t('tzSearchPlaceholder');
   $('#cal-now').textContent = t('now');
   $('#cal-ok').textContent = t('ok');
@@ -3907,10 +4027,13 @@ function initCsb() {
 }
 
 initTzConfig();
+initSysConfig();
 initDateParseConfig();
 renderDateFormatList();
 applyLang();
-switchTab('sec');
+applyTheme();
+initThemeWatcher();
+switchTab(SYS_SETTINGS.defaultTab);
 updateNow();
 initTimestampInput();
 initCsb();
