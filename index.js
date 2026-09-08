@@ -1583,6 +1583,57 @@ function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '000';
   usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '000';
   nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '000';
+  
+  // 调试信息：输出输入框和按钮的尺寸和位置
+  if (window.console) {
+    console.log('=== 输入框和按钮调试信息 ===');
+    console.log('date-field:', {
+      width: dateFieldEl.offsetWidth,
+      height: dateFieldEl.offsetHeight,
+      padding: window.getComputedStyle(dateFieldEl).padding
+    });
+    console.log('cal-btn:', {
+      left: btnCalendar.offsetLeft,
+      top: btnCalendar.offsetTop,
+      width: btnCalendar.offsetWidth,
+      height: btnCalendar.offsetHeight
+    });
+    console.log('clear-btn:', {
+      right: btnDateClear.offsetParent.offsetWidth - btnDateClear.offsetLeft - btnDateClear.offsetWidth,
+      top: btnDateClear.offsetTop,
+      width: btnDateClear.offsetWidth,
+      height: btnDateClear.offsetHeight
+    });
+    console.log('date-input:', {
+      left: dateInput.offsetLeft,
+      width: dateInput.offsetWidth,
+      padding: window.getComputedStyle(dateInput).padding
+    });
+    console.log('time-input:', {
+      left: timeInputEl.offsetLeft,
+      width: timeInputEl.offsetWidth,
+      padding: window.getComputedStyle(timeInputEl).padding
+    });
+    console.log('ms-input:', {
+      left: msInputEl.offsetLeft,
+      width: msInputEl.offsetWidth,
+      padding: window.getComputedStyle(msInputEl).padding,
+      display: window.getComputedStyle(msInputEl).display
+    });
+    console.log('us-input:', {
+      left: usInputEl.offsetLeft,
+      width: usInputEl.offsetWidth,
+      padding: window.getComputedStyle(usInputEl).padding,
+      display: window.getComputedStyle(usInputEl).display
+    });
+    console.log('ns-input:', {
+      left: nsInputEl.offsetLeft,
+      width: nsInputEl.offsetWidth,
+      padding: window.getComputedStyle(nsInputEl).padding,
+      display: window.getComputedStyle(nsInputEl).display
+    });
+  }
+  
   syncClearBtns();
 }
 
@@ -2994,6 +3045,28 @@ function switchTab(tab) {
   msInputEl.style.display = (tab === 'ms' || tab === 'us' || tab === 'ns') && precisionGe('ms') ? '' : 'none';
   usInputEl.style.display = (tab === 'us' || tab === 'ns') && precisionGe('us') ? '' : 'none';
   nsInputEl.style.display = tab === 'ns' && precisionGe('ns') ? '' : 'none';
+  
+  // 调试信息：切换 tab 时输出输入框状态
+  if (window.console) {
+    console.log('=== 切换 tab 调试信息 ===');
+    console.log('当前 tab:', tab);
+    console.log('精度设置:', {
+      ms: precisionGe('ms'),
+      us: precisionGe('us'),
+      ns: precisionGe('ns')
+    });
+    console.log('输入框显示状态:', {
+      ms: msInputEl.style.display,
+      us: usInputEl.style.display,
+      ns: nsInputEl.style.display
+    });
+    console.log('输入框位置和尺寸:', {
+      ms: msInputEl.offsetLeft ? `left: ${msInputEl.offsetLeft}, width: ${msInputEl.offsetWidth}` : 'hidden',
+      us: usInputEl.offsetLeft ? `left: ${usInputEl.offsetLeft}, width: ${usInputEl.offsetWidth}` : 'hidden',
+      ns: nsInputEl.offsetLeft ? `left: ${nsInputEl.offsetLeft}, width: ${nsInputEl.offsetWidth}` : 'hidden'
+    });
+  }
+  
   timeInputEl.placeholder = t('timePlaceholder');
   reformatTimeInput();
   toggleNowPanel();
