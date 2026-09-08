@@ -12,7 +12,7 @@ const DEFAULT_TZ_LIST = [
   { label: '芝加哥', labelEn: 'Chicago', value: 'America/Chicago' },
   { label: '纽约', labelEn: 'New York', value: 'America/New_York' },
   { label: '圣保罗', labelEn: 'Sao Paulo', value: 'America/Sao_Paulo' },
-  { label: '协调世界时', labelEn: 'UTC', value: 'UTC' },
+  { label: '世界协调时', labelEn: 'UTC', value: 'UTC' },
   { label: '伦敦', labelEn: 'London', value: 'Europe/London' },
   { label: '巴黎', labelEn: 'Paris', value: 'Europe/Paris' },
   { label: '开罗', labelEn: 'Cairo', value: 'Africa/Cairo' },
@@ -147,7 +147,7 @@ const ALL_TIMEZONES = [
   { label: '图勒', labelEn: 'Thule', value: 'America/Thule' },
   { label: '佛得角', labelEn: 'Cape Verde', value: 'Atlantic/Cape_Verde' },
   { label: '雷克雅未克', labelEn: 'Reykjavik', value: 'Atlantic/Reykjavik' },
-  { label: '协调世界时', labelEn: 'UTC', value: 'UTC' },
+  { label: '世界协调时', labelEn: 'UTC', value: 'UTC' },
   { label: '阿比让', labelEn: 'Abidjan', value: 'Africa/Abidjan' },
   { label: '阿克拉', labelEn: 'Accra', value: 'Africa/Accra' },
   { label: '巴马科', labelEn: 'Bamako', value: 'Africa/Bamako' },
@@ -623,6 +623,17 @@ function lookupZone(value) {
   return ALL_TIMEZONES.find(z => z.value === value) || CUSTOM_TIMEZONES.find(z => z.value === value);
 }
 
+function guessLocalTzName() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+}
+
+function withLocalZone(list) {
+  const local = guessLocalTzName();
+  if (!local || list.some(z => z.value === local)) return list;
+  const z = lookupZone(local) || { label: local, labelEn: local, value: local };
+  return [z, ...list];
+}
+
 function loadTzConfig() {
   const saved = localStorage.getItem('tz_selected');
   if (saved) {
@@ -630,10 +641,10 @@ function loadTzConfig() {
       const ids = JSON.parse(saved);
       const list = ids.map(id => lookupZone(id) || { label: id, labelEn: id, value: id })
         .filter(z => z && (z.label || z.labelEn));
-      if (list.length > 0) return [{ label: '本地时区', labelEn: 'Local', value: '' }, ...list];
+      if (list.length > 0) return withLocalZone(list);
     } catch (e) {}
   }
-  return [{ label: '本地时区', labelEn: 'Local', value: '' }, ...DEFAULT_TZ_LIST];
+  return withLocalZone([...DEFAULT_TZ_LIST]);
 }
 
 function saveTzConfig(selectedValues) {
@@ -646,15 +657,15 @@ function commitTzConfig() {
   );
   tzConfigSelected.forEach(v => { if (!selected.includes(v)) selected.push(v); });
   saveTzConfig(selected);
-  TIMEZONES = [{ label: '本地时区', labelEn: 'Local', value: '' }, ...selected.map(v =>
+  TIMEZONES = withLocalZone(selected.map(v =>
     lookupZone(v) || { label: v, labelEn: v, value: v }
-  )];
+  ));
   applyLang();
 }
 
 function resetTzConfig() {
   localStorage.removeItem('tz_selected');
-  TIMEZONES = [{ label: '本地时区', labelEn: 'Local', value: '' }, ...DEFAULT_TZ_LIST];
+  TIMEZONES = withLocalZone([...DEFAULT_TZ_LIST]);
   tzConfigSelected = new Set(DEFAULT_TZ_LIST.map(z => z.value));
   renderTzConfigList();
   applyLang();
@@ -3633,36 +3644,30 @@ function applyLang() {
   
   // 按UTC偏移量排序时区
   const sortedTimezones = [...TIMEZONES].sort((a, b) => {
-    if (a.value === '') return -1; // 本地时区排在最前
-    if (b.value === '') return 1;
-    if (a.value === 'UTC') return -1; // UTC排在本地时区之后
-    if (b.value === 'UTC') return 1;
-    
-    const offsetA = offsetMinutes(new Date(), a.value);
-    const offsetB = offsetMinutes(new Date(), b.value);
-    return offsetA - offsetB;
+    return offsetMinutes(new Date(), a.value) - offsetMinutes(new Date(), b.value);
   });
   
   const off = (v) => currentOffsetStr(v);
   const cityOf = (z) => lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn;
+  const utcName = () => lang === 'zh' ? '世界协调时' : 'Coordinated Universal Time';
   timezoneEl.innerHTML = sortedTimezones.map((z) => {
-    if (z.value === '') return `<option value="">${lang === 'zh' ? '本地' : 'Local'} ${off('')}</option>`;
-    if (z.value === 'UTC') return `<option value="UTC">UTC</option>`;
     const abbr = zoneAliases(z).slice(0, 1).join('');
-    return `<option value="${z.value}">${cityOf(z)}${abbr ? ` (${abbr})` : ''} ${off(z.value)}</option>`;
+    const name = z.value === 'UTC' ? utcName() : cityOf(z);
+    const abbrPart = z.value === 'UTC' ? 'UTC' : abbr;
+    return `<option value="${z.value}">${name}${abbrPart ? ` (${abbrPart})` : ''} ${off(z.value)}</option>`;
   }).join('');
   
-  // 确保全局时区选择器有默认值
+  // 确保全局时区选择器有默认值（优先本地时区）
   if (!timezoneEl.value) {
-    console.log('applyLang: 全局时区选择器为空，设置默认值为 Asia/Shanghai');
-    timezoneEl.value = 'Asia/Shanghai';
+    timezoneEl.value = guessLocalTzName() || 'Asia/Shanghai';
   }
   
   inputTzEl.innerHTML = sortedTimezones.map((z) => {
-    if (z.value === '') return `<option value="" title="${lang === 'zh' ? '本地时区' : 'Local time'}">${lang === 'zh' ? '本地时区' : 'Local'} ${off('')}</option>`;
-    if (z.value === 'UTC') return `<option value="UTC" title="UTC 协调世界时">UTC ${off('UTC')}</option>`;
     const abbr = zoneAliases(z).slice(0, 1).join('');
-    return `<option value="${z.value}" title="${lang === 'zh' ? z.label : z.labelEn}${abbr ? ` (${abbr})` : ''}">${lang === 'zh' ? `${z.label}${abbr ? ` (${abbr})` : ''} ${off(z.value)}` : `${z.labelEn}${abbr ? ` (${abbr})` : ''} ${off(z.value)}`}</option>`;
+    const name = z.value === 'UTC' ? utcName() : (lang === 'zh' ? z.label : z.labelEn);
+    const abbrPart = z.value === 'UTC' ? 'UTC' : abbr;
+    const text = `${name}${abbrPart ? ` (${abbrPart})` : ''} ${off(z.value)}`;
+    return `<option value="${z.value}" title="${text}">${text}</option>`;
   }).join('');
   inputTzEl.title = lang === 'zh' ? '输入时区：日期按此时区解析' : 'Input timezone: dates parsed in this zone';
   if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) inputTzEl.value = timezoneEl.value;
