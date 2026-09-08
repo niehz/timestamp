@@ -359,7 +359,7 @@ const I18N = {
     tsOutput: '时间戳', dateOutput: '日期',
     convert: '转换', copy: '复制', copied: '已复制',
     datePlaceholder: 'YYYY-MM-DD',
-    timePlaceholder: 'HH:mm:ss', msPlaceholder: '毫秒',
+    timePlaceholder: 'HH:mm:ss', msPlaceholder: 'ms',
     tsPlaceholderSec: '请输入秒级时间戳',
     tsPlaceholderMs: '请输入毫秒级时间戳',
     tsPlaceholderUs: '请输入微秒级时间戳',
@@ -490,6 +490,8 @@ const btnPause = $('#btn-pause');
 const dateInput = $('#date-input');
 const timeInputEl = $('#time-input');
 const msInputEl = $('#ms-input');
+const usInputEl = $('#us-input');
+const nsInputEl = $('#ns-input');
 const tsInput = $('#ts-input');
 
 // 调试：输出时间戳输入框的背景色和外层背景色
@@ -524,6 +526,8 @@ const wheelHh = $('#wheel-hh');
 const wheelMm = $('#wheel-mm');
 const wheelSs = $('#wheel-ss');
 const wheelMs = $('#wheel-ms');
+const wheelUs = $('#wheel-us');
+const wheelNs = $('#wheel-ns');
 const calTimeInputEl = $('#cal-time-input');
 const dateSuggestEl = $('#date-suggest');
 const dateFieldEl = $('#date-field');
@@ -533,7 +537,7 @@ let calMonth = new Date().getMonth();
 let calSelected = null;
 let calView = 'day';
 let calDecadeStart = Math.floor(new Date().getFullYear() / 10) * 10;
-let calTime = { hh: 0, mm: 0, ss: 0, ms: 0 };
+let calTime = { hh: 0, mm: 0, ss: 0, ms: 0, us: 0, ns: 0 };
 let skipViewSync = false;
 let skipTimeSync = false;
 
@@ -1360,11 +1364,11 @@ function applyParsedToFields(pe) {
   if (pe.tz != null) applyParsedTz(pe.tz);
   const tz = inputTzEl.value || timezoneEl.value;
   if (pe.mode === 'parts') {
-    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms);
+    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms, 0, 0);
   } else {
     const p = tzParts(new Date(pe.abs), tz);
     if (!p) return;
-    setDateFields(p.y, p.mo, p.d, p.h, p.mi, p.se, p.ms);
+    setDateFields(p.y, p.mo, p.d, p.h, p.mi, p.se, p.ms, 0, 0);
   }
 }
 
@@ -1421,28 +1425,31 @@ function toDateStr(y, mo, d, h, mi, se) {
   return `${y}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
 }
 
-function setDateFields(y, mo, d, h, mi, se, ms) {
+function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
   msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '';
+  usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '';
+  nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '';
   syncClearBtns();
 }
 
 function syncClearBtns() {
-  if (btnDateClear) btnDateClear.classList.toggle('show', !!(dateInput.value.trim() || timeInputEl.value.trim() || msInputEl.value.trim()));
+  if (btnDateClear) btnDateClear.classList.toggle('show', !!(dateInput.value.trim() || timeInputEl.value.trim() || msInputEl.value.trim() || usInputEl.value.trim() || nsInputEl.value.trim()));
   if (btnTsClear) btnTsClear.classList.toggle('show', !!tsInput.value.trim());
 }
 
 function setDateToNow() {
   const seq = new Date();
-  setDateFields(seq.getFullYear(), seq.getMonth() + 1, seq.getDate(), seq.getHours(), seq.getMinutes(), seq.getSeconds(), seq.getMilliseconds());
+  setDateFields(seq.getFullYear(), seq.getMonth() + 1, seq.getDate(), seq.getHours(), seq.getMinutes(), seq.getSeconds(), seq.getMilliseconds(),
+    Math.floor(Math.random() * 1000), Math.floor(Math.random() * 1000));
 }
 
 function applyFullDateStr(str) {
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/);
   if (!m) return;
   if (m[4] != null) {
-    setDateFields(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6], 0);
+    setDateFields(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6], 0, 0, 0);
   } else {
     dateInput.value = `${pad(+m[1])}-${pad(+m[2])}-${pad(+m[3])}`;
   }
@@ -1451,7 +1458,9 @@ function readDateSelection() {
   const base = dateInput.value.trim();
   const timeText = timeInputEl.value.trim();
   const msText = msInputEl.value.trim();
-  if (!base && !timeText && !msText) return { empty: true };
+  const usText = usInputEl.value.trim();
+  const nsText = nsInputEl.value.trim();
+  if (!base && !timeText && !msText && !usText && !nsText) return { empty: true };
   if (!base) return { err: true };
   const parsed = parseDateEx(base);
   if (!parsed) return { err: true };
@@ -1460,18 +1469,45 @@ function readDateSelection() {
     return { kind: 'abs', ms: parsed.abs };
   }
   if (parsed.tz != null) applyParsedTz(parsed.tz);
-  let h = parsed.h, mi = parsed.mi, se = parsed.s, ms = parsed.ms || 0;
+  let h = parsed.h, mi = parsed.mi, se = parsed.s, msF = 0, usF = 0, nsF = 0, hasFrac = false;
   if (timeText) {
-    const tm = timeText.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+    const tm = timeText.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/);
     if (!tm) return { err: true };
     h = +tm[1]; mi = +tm[2]; se = tm[3] != null ? +tm[3] : 0;
     if (h > 23 || mi > 59 || se > 59) return { err: true };
+    if (tm[4]) {
+      const f = tm[4].padEnd(9, '0').slice(0, 9);
+      msF = +f.slice(0, 3); usF = +f.slice(3, 6); nsF = +f.slice(6, 9);
+      hasFrac = true;
+    }
   }
+  let ms;
   if (msText) {
     if (!/^\d{1,3}$/.test(msText)) return { err: true };
     ms = +msText;
+  } else if (hasFrac) {
+    ms = msF;
+  } else {
+    ms = parsed.ms || 0;
   }
-  return { y: parsed.y, mo: parsed.mo, d: parsed.d, h, mi, se, ms };
+  let us, ns;
+  if (usText) {
+    if (!/^\d{1,3}$/.test(usText)) return { err: true };
+    us = +usText;
+  } else if (hasFrac) {
+    us = usF;
+  } else {
+    us = calTime.us || 0;
+  }
+  if (nsText) {
+    if (!/^\d{1,3}$/.test(nsText)) return { err: true };
+    ns = +nsText;
+  } else if (hasFrac) {
+    ns = nsF;
+  } else {
+    ns = calTime.ns || 0;
+  }
+  return { y: parsed.y, mo: parsed.mo, d: parsed.d, h, mi, se, ms, us, ns };
 }
 
 function applyParsedTz(tzInfo) {
@@ -1745,7 +1781,7 @@ function jumpToYearInput() {
     calMonth = mo;
     calSelected = { y, mo, d };
     calTime.hh = p.h; calTime.mm = p.mi; calTime.ss = p.se;
-    setDateFields(y, mo + 1, d, p.h, p.mi, p.se, 0);
+    setDateFields(y, mo + 1, d, p.h, p.mi, p.se, 0, 0, 0);
     renderTimeWheels();
     renderConvert();
   } else {
@@ -1775,12 +1811,12 @@ function openCalendar() {
   hideSuggestions();
   calView = 'day';
   const now = new Date();
-  const isEmpty = !dateInput.value.trim() && !timeInputEl.value.trim() && !msInputEl.value.trim();
+  const isEmpty = !dateInput.value.trim() && !timeInputEl.value.trim() && !msInputEl.value.trim() && !usInputEl.value.trim() && !nsInputEl.value.trim();
   if (isEmpty) {
     calYear = now.getFullYear(); calMonth = now.getMonth();
     calSelected = { y: now.getFullYear(), mo: now.getMonth(), d: now.getDate() };
     calDecadeStart = Math.floor(now.getFullYear() / 10) * 10;
-    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds() };
+    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: Math.floor(Math.random() * 1000), ns: Math.floor(Math.random() * 1000) };
   } else {
     const parsed = parseDate(dateInput.value);
     if (parsed && parsed.kind === 'date') {
@@ -1789,20 +1825,28 @@ function openCalendar() {
     } else {
       calSelected = null;
     }
-    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds() };
-    const tm = timeInputEl.value.trim().match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: Math.floor(Math.random() * 1000), ns: Math.floor(Math.random() * 1000) };
+    const tm = timeInputEl.value.trim().match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/);
     if (tm) {
       calTime.hh = Math.min(23, +tm[1]); calTime.mm = Math.min(59, +tm[2]);
       calTime.ss = tm[3] != null ? Math.min(59, +tm[3]) : 0;
+      if (tm[4]) {
+        const f = tm[4].padEnd(9, '0').slice(0, 9);
+        calTime.ms = +f.slice(0, 3); calTime.us = +f.slice(3, 6); calTime.ns = +f.slice(6, 9);
+      }
     }
     const msT = msInputEl.value.trim();
     if (/^\d{1,3}$/.test(msT)) calTime.ms = +msT;
+    const usT = usInputEl.value.trim();
+    if (/^\d{1,3}$/.test(usT)) calTime.us = +usT;
+    const nsT = nsInputEl.value.trim();
+    if (/^\d{1,3}$/.test(nsT)) calTime.ns = +nsT;
   }
   renderTimeWheels();
   renderCalendar();
   calendarEl.classList.add('open');
   syncTimeInput();
-  if (window.console) console.log('[debug openCalendar]', 'tab=' + currentTab, 'systemTime=' + new Date().toString(), 'inputTz=' + inputTzEl.value, 'calTime=', JSON.stringify(calTime), 'dateIn=' + JSON.stringify(dateInput.value), 'timeIn=' + JSON.stringify(timeInputEl.value), 'msIn=' + JSON.stringify(msInputEl.value), 'timeInputDom=' + JSON.stringify(calTimeInputEl.value));
+  if (window.console) console.log('[debug openCalendar]', 'tab=' + currentTab, 'systemTime=' + new Date().toString(), 'inputTz=' + inputTzEl.value, 'calTime=', JSON.stringify(calTime), 'dateIn=' + JSON.stringify(dateInput.value), 'timeIn=' + JSON.stringify(timeInputEl.value), 'msIn=' + JSON.stringify(msInputEl.value), 'usIn=' + JSON.stringify(usInputEl.value), 'nsIn=' + JSON.stringify(nsInputEl.value), 'timeInputDom=' + JSON.stringify(calTimeInputEl.value));
 }
 
 function closeCalendar() { calendarEl.classList.remove('open'); }
@@ -1811,25 +1855,40 @@ const WHEEL_H = 44;
 const WHEEL_VIEW = 132;
 
 function renderTimeWheels() {
-  wheelMs.style.display = currentTab === 'ms' ? '' : 'none';
+  const isMsTab = currentTab === 'ms';
+  const isUsTab = currentTab === 'us';
+  const isNsTab = currentTab === 'ns';
+  const showMs = isMsTab || isUsTab || isNsTab;
+  const showUs = isUsTab || isNsTab;
+  const showNs = isNsTab;
+  wheelMs.style.display = showMs ? '' : 'none';
   const msCol = wheelMs.parentNode;
-  if (msCol) msCol.style.display = currentTab === 'ms' ? '' : 'none';
+  if (msCol) msCol.style.display = showMs ? '' : 'none';
+  wheelUs.style.display = showUs ? '' : 'none';
+  const usCol = wheelUs.parentNode;
+  if (usCol) usCol.style.display = showUs ? '' : 'none';
+  wheelNs.style.display = showNs ? '' : 'none';
+  const nsCol = wheelNs.parentNode;
+  if (nsCol) nsCol.style.display = showNs ? '' : 'none';
   buildWheel(wheelHh, 24, calTime.hh, (v) => { calTime.hh = v; applyWheelTime(); });
   buildWheel(wheelMm, 60, calTime.mm, (v) => { calTime.mm = v; applyWheelTime(); });
   buildWheel(wheelSs, 60, calTime.ss, (v) => { calTime.ss = v; applyWheelTime(); });
   buildWheel(wheelMs, 1000, calTime.ms, (v) => { calTime.ms = v; applyWheelTime(); });
+  if (showUs) buildWheel(wheelUs, 1000, calTime.us, (v) => { calTime.us = v; applyWheelTime(); });
+  if (showNs) buildWheel(wheelNs, 1000, calTime.ns, (v) => { calTime.ns = v; applyWheelTime(); });
   if (!skipTimeSync) syncTimeInput();
 }
 
 function syncTimeInput() {
   const t = calTime;
   const base = `${pad(t.hh)}:${pad(t.mm)}:${pad(t.ss)}`;
+  const msStr = String(t.ms).padStart(3, '0');
   if (currentTab === 'ms') {
-    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+    calTimeInputEl.value = `${base}.${msStr}`;
   } else if (currentTab === 'us') {
-    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+    calTimeInputEl.value = `${base}.${msStr}${String(t.us).padStart(3, '0')}`;
   } else if (currentTab === 'ns') {
-    calTimeInputEl.value = `${base}.${String(t.ms).padStart(3, '0')}`;
+    calTimeInputEl.value = `${base}.${msStr}${String(t.us).padStart(3, '0')}${String(t.ns).padStart(3, '0')}`;
   } else {
     calTimeInputEl.value = base;
   }
@@ -1840,15 +1899,21 @@ function followTimeInput() {
   if (!raw) { renderTimeWheels(); return; }
   const parts = raw.split(':');
   const hh = +parts[0] || 0;
-  const readMmSs = (seg) => {
+  const readFrac = (seg) => {
     const sp = seg.split('.');
-    return [ +sp[0] || 0, sp[1] ? +sp[1].padEnd(3, '0').slice(0, 3) : 0 ];
+    const frac = sp[1] ? sp[1].padEnd(9, '0').slice(0, 9) : '000000000';
+    return {
+      int: +sp[0] || 0,
+      ms: +frac.slice(0, 3),
+      us: +frac.slice(3, 6),
+      ns: +frac.slice(6, 9),
+    };
   };
-  let mm = 0, ss = 0, ms = 0;
-  if (parts[1]) { const r = readMmSs(parts[1]); mm = r[0]; ms = r[1]; }
-  if (parts[2]) { const r = readMmSs(parts[2]); ss = r[0]; ms = r[1]; }
+  let mm = 0, ss = 0, ms = 0, us = 0, ns = 0;
+  if (parts[1]) { const r = readFrac(parts[1]); mm = r.int; ms = r.ms; us = r.us; ns = r.ns; }
+  if (parts[2]) { const r = readFrac(parts[2]); ss = r.int; ms = r.ms; us = r.us; ns = r.ns; }
   if (hh > 23 || mm > 59 || ss > 59) return;
-  calTime.hh = hh; calTime.mm = mm; calTime.ss = ss; calTime.ms = ms;
+  calTime.hh = hh; calTime.mm = mm; calTime.ss = ss; calTime.ms = ms; calTime.us = us; calTime.ns = ns;
   skipTimeSync = true;
   try {
     renderTimeWheels();
@@ -1922,10 +1987,11 @@ function buildWheel(el, count, cur, onChange) {
   el.innerHTML = '';
   el.style.paddingTop = ((WHEEL_VIEW - WHEEL_H) / 2) + 'px';
   el.style.paddingBottom = ((WHEEL_VIEW - WHEEL_H) / 2) + 'px';
+  const digits = count > 99 ? 3 : 2;
   for (let i = 0; i < count; i++) {
     const it = document.createElement('div');
     it.className = 'wheel-item';
-    it.textContent = String(i).padStart(2, '0');
+    it.textContent = String(i).padStart(digits, '0');
     it.addEventListener('click', (e) => { e.stopPropagation(); selectWheelValue(el, i, onChange); });
     el.appendChild(it);
   }
@@ -2101,8 +2167,11 @@ function renderConvert() {
   }
   const secVal = String(Math.floor(ms / 1000));
   const msVal = String(ms);
-  const usVal = String(ms * 1000);
-  const nsVal = String(ms * 1000000);
+  const us = (sel.us || 0) % 1000;
+  const ns = (sel.ns || 0) % 1000;
+  const msInt = Math.floor(ms);
+  const usVal = (BigInt(msInt) * 1000n + BigInt(us)).toString();
+  const nsVal = (BigInt(msInt) * 1000000n + BigInt(us) * 1000n + BigInt(ns)).toString();
   
   let text, value;
   if (isSec) {
@@ -2154,16 +2223,16 @@ function renderReverse() {
     setHint(hintT2d, t('invalidTs'), 'err');
     return;
   }
-  const n = Number(raw);
+  const n = BigInt(raw);
   let ms;
   if (isSec) {
-    ms = n * 1000;
+    ms = Number(n * 1000n);
   } else if (isMs) {
-    ms = n;
+    ms = Number(n);
   } else if (isUs) {
-    ms = n / 1000;
+    ms = Number(n / 1000n);
   } else if (isNs) {
-    ms = n / 1000000;
+    ms = Number(n / 1000000n);
   }
   if (!validate(ms)) {
     setResult(t2dVal, t('outOfRange'), 'err');
@@ -2178,9 +2247,9 @@ function renderReverse() {
   } else if (isMs) {
     displayValue = ms;
   } else if (isUs) {
-    displayValue = n;
+    displayValue = raw;
   } else if (isNs) {
-    displayValue = n;
+    displayValue = raw;
   }
   t2dVal.dataset.value = displayValue.toString();
   setResult(t2dVal, text, 'ok');
@@ -2194,17 +2263,18 @@ function htmlEscape(s) {
 function currentT2dMs() {
   const v = t2dVal.dataset.value;
   if (v === '' || v === undefined) return null;
-  const n = Number(v);
+  if (!/^-?\d+$/.test(v)) return null;
+  const n = BigInt(v);
   if (currentTab === 'sec') {
-    return n * 1000;
+    return Number(n * 1000n);
   } else if (currentTab === 'ms') {
-    return n;
+    return Number(n);
   } else if (currentTab === 'us') {
-    return n / 1000;
+    return Number(n / 1000n);
   } else if (currentTab === 'ns') {
-    return n / 1000000;
+    return Number(n / 1000000n);
   }
-  return n;
+  return Number(n);
 }
 
 function renderT2dPopover() {
@@ -2751,24 +2821,49 @@ function initDateFormatConfig() {
 
 function switchTab(tab) {
   currentTab = tab;
+  document.body.classList.toggle('tab-us', tab === 'us');
+  document.body.classList.toggle('tab-ns', tab === 'ns');
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
   if (tab === 'sec') {
     tsInput.placeholder = t('tsPlaceholderSec');
-    msInputEl.style.display = 'none';
   } else if (tab === 'ms') {
     tsInput.placeholder = t('tsPlaceholderMs');
-    msInputEl.style.display = '';
   } else if (tab === 'us') {
     tsInput.placeholder = t('tsPlaceholderUs');
-    msInputEl.style.display = 'none';
   } else if (tab === 'ns') {
     tsInput.placeholder = t('tsPlaceholderNs');
-    msInputEl.style.display = 'none';
   }
+  msInputEl.style.display = (tab === 'ms' || tab === 'us' || tab === 'ns') ? '' : 'none';
+  usInputEl.style.display = (tab === 'us' || tab === 'ns') ? '' : 'none';
+  nsInputEl.style.display = tab === 'ns' ? '' : 'none';
+  timeInputEl.placeholder = t('timePlaceholder');
+  reformatTimeInput();
   toggleNowPanel();
   if (calendarEl.classList.contains('open')) renderTimeWheels();
   renderConvert();
   renderReverse();
+}
+
+function reformatTimeInput() {
+  const raw = timeInputEl.value.trim();
+  const parts = raw ? raw.split(':') : null;
+  if (parts && parts.length >= 2) {
+    const frac = parts[2] && parts[2].split('.')[1];
+    if (frac) {
+      const f = frac.padEnd(9, '0').slice(0, 9);
+      msInputEl.value = String(+f.slice(0, 3)).padStart(3, '0');
+      usInputEl.value = String(+f.slice(3, 6)).padStart(3, '0');
+      nsInputEl.value = String(+f.slice(6, 9)).padStart(3, '0');
+      parts[2] = parts[2].split('.')[0];
+    }
+    if (currentTab === 'us') {
+      if (!usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+    } else if (currentTab === 'ns') {
+      if (!usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      if (!nsInputEl.value.trim()) nsInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+    }
+    timeInputEl.value = `${parts[0]}:${parts[1]}${parts[2] ? ':' + parts[2] : ''}`;
+  }
 }
 
 function toggleNowPanel() {
@@ -3466,7 +3561,11 @@ function applyLang() {
   dateInput.placeholder = t('datePlaceholder');
   timeInputEl.placeholder = t('timePlaceholder');
   msInputEl.placeholder = t('msPlaceholder');
-  msInputEl.style.display = currentTab === 'ms' ? '' : 'none';
+  usInputEl.placeholder = 'us';
+  nsInputEl.placeholder = 'ns';
+  msInputEl.style.display = (currentTab === 'ms' || currentTab === 'us' || currentTab === 'ns') ? '' : 'none';
+  usInputEl.style.display = (currentTab === 'us' || currentTab === 'ns') ? '' : 'none';
+  nsInputEl.style.display = currentTab === 'ns' ? '' : 'none';
   if (tzSearchEl) tzSearchEl.placeholder = t('tzSearchPlaceholder');
   $('#cal-now').textContent = t('now');
   $('#cal-ok').textContent = t('ok');
@@ -3505,6 +3604,10 @@ timeInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); 
 timeInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 msInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
 msInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
+usInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
+usInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
+nsInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
+nsInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 tsInput.addEventListener('input', () => { renderReverse(); syncClearBtns(); });
 tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 
@@ -3531,7 +3634,7 @@ calendarEl.addEventListener('click', (e) => {
   if (!z) return;
   e.stopPropagation();
   const k = z.dataset.wheel;
-  const map = { hh: 'hh', mm: 'mm', ss: 'ss', ms: 'ms' };
+  const map = { hh: 'hh', mm: 'mm', ss: 'ss', ms: 'ms', us: 'us', ns: 'ns' };
   if (!map[k]) return;
   calTime[map[k]] = 0;
   renderTimeWheels();
@@ -3552,7 +3655,9 @@ $('#cal-now').addEventListener('click', (e) => {
   calSelected = { y: n.getFullYear(), mo: n.getMonth(), d: n.getDate() };
   calYear = n.getFullYear(); calMonth = n.getMonth();
   calTime.hh = n.getHours(); calTime.mm = n.getMinutes(); calTime.ss = n.getSeconds(); calTime.ms = n.getMilliseconds();
-  setDateFields(calYear, calMonth + 1, calSelected.d, calTime.hh, calTime.mm, calTime.ss, calTime.ms);
+  calTime.us = Math.floor(Math.random() * 1000);
+  calTime.ns = Math.floor(Math.random() * 1000);
+  setDateFields(calYear, calMonth + 1, calSelected.d, calTime.hh, calTime.mm, calTime.ss, calTime.ms, calTime.us, calTime.ns);
   renderTimeWheels();
   renderCalendar(); renderConvert();
 });
@@ -3560,7 +3665,7 @@ $('#cal-ok').addEventListener('click', (e) => {
   e.stopPropagation();
   if (calSelected) {
     setDateFields(calSelected.y, calSelected.mo + 1, calSelected.d,
-      calTime.hh, calTime.mm, calTime.ss, calTime.ms);
+      calTime.hh, calTime.mm, calTime.ss, calTime.ms, calTime.us, calTime.ns);
   }
   renderConvert();
   closeCalendar();
@@ -3593,6 +3698,8 @@ if (btnDateClear) {
     dateInput.value = '';
     timeInputEl.value = '';
     msInputEl.value = '';
+    usInputEl.value = '';
+    nsInputEl.value = '';
     hideSuggestions();
     calendarEl.classList.remove('open');
     syncClearBtns();

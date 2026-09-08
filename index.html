@@ -28,7 +28,7 @@
 
     <section class="main-grid">
       <div class="cards">
-        <div class="card">
+        <div class="card" id="card-d2t">
           <div class="card-title" data-i18n="dateToTs">日期 → 时间戳</div>
           <div class="card-inner">
             <div class="left-col">
@@ -39,7 +39,11 @@
                   <input id="time-input" type="text" spellcheck="false" autocomplete="off"
                          placeholder="HH:mm:ss">
                   <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
-                         placeholder=".ms" style="display:none">
+                         placeholder="ms" style="display:none">
+                  <input id="us-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="us" style="display:none">
+                  <input id="ns-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="ns" style="display:none">
                   <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
                   <button type="button" class="clear-btn" id="btn-date-clear" title="清空">×</button>
                   <div class="date-suggest" id="date-suggest"></div>
@@ -86,6 +90,14 @@
                         <div class="wheel-col">
                           <button type="button" class="wheel-zero" data-wheel="ms">0</button>
                           <div class="wheel ms-wheel" id="wheel-ms" style="display:none"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="us">0</button>
+                          <div class="wheel us-wheel" id="wheel-us" style="display:none"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ns">0</button>
+                          <div class="wheel ns-wheel" id="wheel-ns" style="display:none"></div>
                         </div>
                       </div>
                       <div class="cal-time-actions">
