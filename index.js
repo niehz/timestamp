@@ -350,6 +350,7 @@ function zoneAliases(z) {
 }
 
 let TIMEZONES = loadTzConfig();
+let tzInitApplied = false;
 
 const SYS_DEFAULTS = { defaultTab: 'sec', precision: 'ns', theme: 'auto' };
 let SYS_SETTINGS = loadSysSettings();
@@ -3657,9 +3658,10 @@ function applyLang() {
     return `<option value="${z.value}">${name}${abbrPart ? ` (${abbrPart})` : ''} ${off(z.value)}</option>`;
   }).join('');
   
-  // 确保全局时区选择器有默认值（优先本地时区）
-  if (!timezoneEl.value) {
+  // 首次加载时默认选中本地时区（innerHTML 赋值后 select 会自动选中第一个 option，需显式覆盖）
+  if (!tzInitApplied) {
     timezoneEl.value = guessLocalTzName() || 'Asia/Shanghai';
+    tzInitApplied = true;
   }
   
   inputTzEl.innerHTML = sortedTimezones.map((z) => {
