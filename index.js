@@ -532,7 +532,7 @@ en: {
 };
 
 let lang = 'zh';
-const BUILD = 'v20';
+const BUILD = 'v1.0.0';
 let currentTab = 'sec';
 let inputTzCustom = false;
 let paused = false;

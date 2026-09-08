@@ -2,6 +2,7 @@
   "main": "index.html",
   "logo": "logo.png",
   "preload": "preload.js",
+  "version": "1.0.0",
   "pluginSetting": {
     "height": 560
   },
