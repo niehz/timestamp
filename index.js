@@ -462,6 +462,10 @@ const I18N = {
     sysThemeDark: '黑夜',
     sysThemeLight: '白天',
     sysReset: '已恢复默认系统设置',
+    donate: '支持开发者',
+    donateTitle: '支持开发者',
+    donateDesc: '如果这个工具帮到了你，可以请我喝杯咖啡 ☕',
+    donateThanks: '感谢你的支持',
   },
 en: {
     secTab: 'Seconds', msTab: 'Milliseconds', usTab: 'Microseconds', nsTab: 'Nanoseconds',
@@ -528,6 +532,10 @@ en: {
     sysThemeDark: 'Night',
     sysThemeLight: 'Day',
     sysReset: 'Reset to default system settings',
+    donate: 'Support Developer',
+    donateTitle: 'Support Developer',
+    donateDesc: 'If this tool has helped you, you can buy me a coffee ☕',
+    donateThanks: 'Thank you for your support',
   },
 };
 
@@ -1023,6 +1031,24 @@ function initTzConfig() {
   tzConfigModal.addEventListener('click', (e) => {
     if (e.target === tzConfigModal) tzConfigModal.classList.remove('show');
   });
+  const donateModal = $('#donate-modal');
+  const donateLink = $('#donate-link');
+  const donateClose = $('#donate-close');
+  if (donateLink) {
+    donateLink.addEventListener('click', () => {
+      if (donateModal) donateModal.classList.add('show');
+    });
+  }
+  if (donateClose) {
+    donateClose.addEventListener('click', () => {
+      if (donateModal) donateModal.classList.remove('show');
+    });
+  }
+  if (donateModal) {
+    donateModal.addEventListener('click', (e) => {
+      if (e.target === donateModal) donateModal.classList.remove('show');
+    });
+  }
   if (btnCustomTzAdd) {
     btnCustomTzAdd.addEventListener('click', () => addCustomTimezone());
     [customTzCnEl, customTzEnEl, customTzOffsetEl].forEach(el => {
