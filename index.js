@@ -1580,9 +1580,9 @@ function toDateStr(y, mo, d, h, mi, se) {
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
-  msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '';
-  usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '';
-  nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '';
+  msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '000';
+  usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '000';
+  nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '000';
   syncClearBtns();
 }
 
@@ -3015,10 +3015,10 @@ function reformatTimeInput() {
       parts[2] = parts[2].split('.')[0];
     }
     if (currentTab === 'us' && precisionGe('us')) {
-      if (!usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      if (!usInputEl.value.trim()) usInputEl.value = '000';
     } else if (currentTab === 'ns') {
-      if (precisionGe('us') && !usInputEl.value.trim()) usInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-      if (precisionGe('ns') && !nsInputEl.value.trim()) nsInputEl.value = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      if (precisionGe('us') && !usInputEl.value.trim()) usInputEl.value = '000';
+      if (precisionGe('ns') && !nsInputEl.value.trim()) nsInputEl.value = '000';
     }
     timeInputEl.value = `${parts[0]}:${parts[1]}${parts[2] ? ':' + parts[2] : ''}`;
   }
@@ -3850,9 +3850,9 @@ if (btnDateClear) {
   btnDateClear.addEventListener('click', () => {
     dateInput.value = '';
     timeInputEl.value = '';
-    msInputEl.value = '';
-    usInputEl.value = '';
-    nsInputEl.value = '';
+    msInputEl.value = '000';
+    usInputEl.value = '000';
+    nsInputEl.value = '000';
     hideSuggestions();
     calendarEl.classList.remove('open');
     syncClearBtns();
