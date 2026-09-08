@@ -90,7 +90,7 @@ body.tab-ns.prec-us #card-d2t .result-value{font-size:12.5px;white-space:normal;
 .date-input-row{display:flex;gap:10px;align-items:center;width:100%;min-height:56px}
 .right-col{display:flex;flex-direction:column;gap:12px;min-width:0;align-items:flex-start;justify-content:center}
 .input-box{flex:1;display:flex;align-items:center;min-height:56px;position:relative}
-.card-inner .date-field{position:relative;display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;transition:border-color .15s;min-width:0;gap:2px}
+.card-inner .date-field{position:relative;display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;transition:border-color .15s;min-width:0;gap:2px;padding:0 8px}
 .card-inner input{flex:1;background:transparent;border:none;padding:8px 16px 8px 12px;color:var(--text);font-size:16px;font-family:var(--mono);outline:none;min-width:0}
 .card-inner input::placeholder{color:var(--placeholder);font-family:inherit}
 .card-inner input:focus{border:none}
@@ -217,7 +217,7 @@ body.tab-ns.prec-us #card-d2t .result-value{font-size:12.5px;white-space:normal;
 #input-tz:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 #date-input{min-width:0}
 #ms-input,#us-input,#ns-input{flex:0 0 auto;width:40px;text-align:center;padding:6px 1px;font-size:16px}
-.cal-btn{border:none;background:transparent;color:var(--dim);font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;transition:color .15s;line-height:1;display:flex;align-items:center;justify-content:center}
+.cal-btn{position:absolute;left:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--dim);font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;transition:color .15s;line-height:1;display:flex;align-items:center;justify-content:center;z-index:1}
 .cal-btn:hover{color:var(--accent)}
 .clear-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;color:var(--dim);font-size:16px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:6px;transition:color .15s,background .15s;display:none;z-index:1}
 .clear-btn.show{display:inline-flex;align-items:center;justify-content:center}
