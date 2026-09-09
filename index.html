@@ -10,10 +10,22 @@
   <div class="app">
     <header class="header">
       <div class="tabs">
-        <button class="tab active" data-tab="sec">秒级</button>
-        <button class="tab" data-tab="ms">毫秒级</button>
-        <button class="tab" data-tab="us">微秒级</button>
-        <button class="tab" data-tab="ns">纳秒级</button>
+        <button class="tab active" data-tab="sec">
+          <span class="tab-text">秒级</span>
+          <span class="precision-indicator" id="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="ms">
+          <span class="tab-text">毫秒级</span>
+          <span class="precision-indicator" id="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="us">
+          <span class="tab-text">微秒级</span>
+          <span class="precision-indicator" id="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="ns">
+          <span class="tab-text">纳秒级</span>
+          <span class="precision-indicator" id="precision-indicator"></span>
+        </button>
       </div>
       <div class="header-right">
         <button class="lang-btn" id="btn-lang">EN</button>
@@ -37,12 +49,8 @@
                          placeholder="YYYY-MM-DD">
                   <input id="time-input" type="text" spellcheck="false" autocomplete="off"
                          placeholder="HH:mm:ss">
-                  <input id="ms-input" type="text" spellcheck="false" autocomplete="off"
-                         placeholder="ms" style="display:none">
-                  <input id="us-input" type="text" spellcheck="false" autocomplete="off"
-                         placeholder="us" style="display:none">
-                  <input id="ns-input" type="text" spellcheck="false" autocomplete="off"
-                         placeholder="ns" style="display:none">
+                  <input id="frac-input" type="text" spellcheck="false" autocomplete="off"
+                         inputmode="decimal" style="display:none">
                   <button class="cal-btn" id="btn-calendar" title="打开日历">🕒</button>
                   <button type="button" class="clear-btn" id="btn-date-clear" title="清空">×</button>
                   <div class="date-suggest" id="date-suggest"></div>
@@ -108,10 +116,10 @@
                 </div>
                               </div>
                 <div class="custom-tz-selector" title="双滚轮时区选择器：滚轮切换小时/分钟，点击⟲重置为全局时区">
-                  <div class="tz-hour-wheel" id="tz-hour-wheel" title="小时滚轮：滚轮切换时区偏移小时，点击后可滚动">
+                  <div class="tz-hour-wheel" id="tz-hour-wheel" title="小时滚轮：滚轮切换时区偏移小时">
                     <div class="wheel-content"></div>
                   </div>
-                  <div class="tz-min-wheel" id="tz-min-wheel" title="分钟滚轮：滚轮切换时区偏移分钟，点击后可滚动">
+                  <div class="tz-min-wheel" id="tz-min-wheel" title="分钟滚轮：滚轮切换时区偏移分钟">
                     <div class="wheel-content"></div>
                   </div>
                   <div class="tz-reset-btn" id="tz-reset-btn" title="重置为全局时区">⟲</div>

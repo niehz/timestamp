@@ -405,6 +405,7 @@ const I18N = {
     convert: '转换', copy: '复制', copied: '已复制',
     datePlaceholder: 'YYYY-MM-DD',
     timePlaceholder: 'HH:mm:ss', msPlaceholder: 'ms',
+    fracPlaceholderMs: '毫秒', fracPlaceholderUs: '微秒', fracPlaceholderNs: '纳秒',
     tsPlaceholderSec: '请输入秒级时间戳',
     tsPlaceholderMs: '请输入毫秒级时间戳',
     tsPlaceholderUs: '请输入微秒级时间戳',
@@ -475,6 +476,7 @@ en: {
     convert: 'Convert', copy: 'Copy', copied: 'Copied',
     datePlaceholder: 'YYYY-MM-DD',
     timePlaceholder: 'HH:mm:ss', msPlaceholder: 'ms',
+    fracPlaceholderMs: 'ms', fracPlaceholderUs: 'us', fracPlaceholderNs: 'ns',
     tsPlaceholderSec: 'Enter seconds timestamp (10 digits)',
     tsPlaceholderMs: 'Enter ms timestamp (13 digits)',
     tsPlaceholderUs: 'Enter microseconds timestamp (16 digits)',
@@ -562,9 +564,7 @@ const liveDot = $('#live-dot');
 const btnPause = $('#btn-pause');
 const dateInput = $('#date-input');
 const timeInputEl = $('#time-input');
-const msInputEl = $('#ms-input');
-const usInputEl = $('#us-input');
-const nsInputEl = $('#ns-input');
+const fracInputEl = $('#frac-input');
 const tsInput = $('#ts-input');
 
 // 调试：输出时间戳输入框的背景色和外层背景色
@@ -1085,8 +1085,10 @@ function applySysField(id, value) {
     SYS_SETTINGS.theme = value || SYS_DEFAULTS.theme;
   }
   saveSysSettings();
-  if (id === 'sys-precision') switchTab(currentTab);
-  else if (id === 'sys-theme') applyTheme();
+  if (id === 'sys-precision') {
+    switchTab(currentTab);
+    updatePrecisionIndicators();
+  } else if (id === 'sys-theme') applyTheme();
 }
 function resetSysConfig() {
   SYS_SETTINGS = { ...SYS_DEFAULTS };
@@ -1094,6 +1096,7 @@ function resetSysConfig() {
   renderSysConfig();
   applyTheme();
   switchTab(currentTab);
+  updatePrecisionIndicators();
   toast(t('sysReset'));
 }
 function initSysConfig() {
@@ -1566,18 +1569,63 @@ function toDateStr(y, mo, d, h, mi, se) {
   return `${y}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
 }
 
+const FRAC_DIGITS_BY_TAB = { sec: 0, ms: 3, us: 6, ns: 9 };
+
+function currentFracDigits() {
+  const n = FRAC_DIGITS_BY_TAB[currentTab] || 0;
+  if (!n) return 0;
+  
+  // 根据系统配置的精度调整显示
+  const sysPrecision = SYS_SETTINGS.precision;
+  
+  // 如果系统配置精度是秒级，所有高精度输入框都显示为秒级（不显示）
+  if (sysPrecision === 'sec') {
+    return 0;
+  }
+  
+  // 如果系统配置精度是毫秒级，微秒和纳秒输入框显示为毫秒级
+  if (sysPrecision === 'ms') {
+    if (n >= 6 && currentTab !== 'ms') return 3; // 微秒和纳秒TAB显示为毫秒级
+    if (n >= 9 && currentTab === 'ns') return 3; // 纳秒TAB显示为毫秒级
+  }
+  
+  // 如果系统配置精度是微秒级，纳秒输入框显示为微秒级
+  if (sysPrecision === 'us') {
+    if (n >= 9 && currentTab === 'ns') return 6; // 纳秒TAB显示为微秒级
+  }
+  
+  // 原有逻辑，确保权限检查
+  if (n >= 9 && !precisionGe('ns')) return 6;
+  if (n >= 6 && !precisionGe('us')) return 3;
+  if (!precisionGe('ms')) return 0;
+  
+  return n;
+}
+
+function fracToParts(str, digits) {
+  const f = (str || '').padEnd(Math.max(digits || 9, 9), '0').slice(0, 9);
+  return {
+    ms: +f.slice(0, 3) || 0,
+    us: +f.slice(3, 6) || 0,
+    ns: +f.slice(6, 9) || 0
+  };
+}
+
+function partsToFrac(ms, us, ns, digits) {
+  const seg = (d) => (typeof d === 'number' && d > 0 ? String(d).padStart(3, '0') : '000');
+  return (seg(ms) + seg(us) + seg(ns)).slice(0, Math.min(digits || 9, 9));
+}
+
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
-  msInputEl.value = typeof ms === 'number' && ms > 0 ? String(ms).padStart(3, '0') : '000';
-  usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '000';
-  nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '000';
+  fracInputEl.value = partsToFrac(ms, us, ns, currentFracDigits());
   
   syncClearBtns();
 }
 
 function syncClearBtns() {
-  if (btnDateClear) btnDateClear.classList.toggle('show', !!(dateInput.value.trim() || timeInputEl.value.trim() || msInputEl.value.trim() || usInputEl.value.trim() || nsInputEl.value.trim()));
+  if (btnDateClear) btnDateClear.classList.toggle('show', !!(dateInput.value.trim() || timeInputEl.value.trim() || fracInputEl.value.trim()));
   if (btnTsClear) btnTsClear.classList.toggle('show', !!tsInput.value.trim());
 }
 
@@ -1599,10 +1647,8 @@ function applyFullDateStr(str) {
 function readDateSelection() {
   const base = dateInput.value.trim();
   const timeText = timeInputEl.value.trim();
-  const msText = msInputEl.value.trim();
-  const usText = usInputEl.value.trim();
-  const nsText = nsInputEl.value.trim();
-  if (!base && !timeText && !msText && !usText && !nsText) return { empty: true };
+  const fracText = fracInputEl.value.trim();
+  if (!base && !timeText && !fracText) return { empty: true };
   if (!base) return { err: true };
   const parsed = parseDateEx(base);
   if (!parsed) return { err: true };
@@ -1618,36 +1664,20 @@ function readDateSelection() {
     h = +tm[1]; mi = +tm[2]; se = tm[3] != null ? +tm[3] : 0;
     if (h > 23 || mi > 59 || se > 59) return { err: true };
     if (tm[4]) {
-      const f = tm[4].padEnd(9, '0').slice(0, 9);
-      msF = +f.slice(0, 3); usF = +f.slice(3, 6); nsF = +f.slice(6, 9);
+      const p = fracToParts(tm[4], 9);
+      msF = p.ms; usF = p.us; nsF = p.ns;
       hasFrac = true;
     }
   }
-  let ms;
-  if (msText) {
-    if (!/^\d{1,3}$/.test(msText)) return { err: true };
-    ms = +msText;
+  let ms, us, ns;
+  if (fracText) {
+    if (!/^\d{1,9}$/.test(fracText)) return { err: true };
+    const p = fracToParts(fracText.slice(0, currentFracDigits() || 9), 9);
+    ms = p.ms; us = p.us; ns = p.ns;
   } else if (hasFrac) {
-    ms = msF;
+    ms = msF; us = usF; ns = nsF;
   } else {
-    ms = parsed.ms || 0;
-  }
-  let us, ns;
-  if (usText) {
-    if (!/^\d{1,3}$/.test(usText)) return { err: true };
-    us = +usText;
-  } else if (hasFrac) {
-    us = usF;
-  } else {
-    us = calTime.us || 0;
-  }
-  if (nsText) {
-    if (!/^\d{1,3}$/.test(nsText)) return { err: true };
-    ns = +nsText;
-  } else if (hasFrac) {
-    ns = nsF;
-  } else {
-    ns = calTime.ns || 0;
+    ms = parsed.ms || 0; us = calTime.us || 0; ns = calTime.ns || 0;
   }
   return { y: parsed.y, mo: parsed.mo, d: parsed.d, h, mi, se, ms, us, ns };
 }
@@ -1953,7 +1983,7 @@ function openCalendar() {
   hideSuggestions();
   calView = 'day';
   const now = new Date();
-  const isEmpty = !dateInput.value.trim() && !timeInputEl.value.trim() && !msInputEl.value.trim() && !usInputEl.value.trim() && !nsInputEl.value.trim();
+  const isEmpty = !dateInput.value.trim() && !timeInputEl.value.trim() && !fracInputEl.value.trim();
   if (isEmpty) {
     calYear = now.getFullYear(); calMonth = now.getMonth();
     calSelected = { y: now.getFullYear(), mo: now.getMonth(), d: now.getDate() };
@@ -1977,12 +2007,11 @@ function openCalendar() {
         calTime.ms = +f.slice(0, 3); calTime.us = +f.slice(3, 6); calTime.ns = +f.slice(6, 9);
       }
     }
-    const msT = msInputEl.value.trim();
-    if (/^\d{1,3}$/.test(msT)) calTime.ms = +msT;
-    const usT = usInputEl.value.trim();
-    if (/^\d{1,3}$/.test(usT)) calTime.us = +usT;
-    const nsT = nsInputEl.value.trim();
-    if (/^\d{1,3}$/.test(nsT)) calTime.ns = +nsT;
+    const fT = fracInputEl.value.trim();
+    if (/^\d{1,9}$/.test(fT)) {
+      const p = fracToParts(fT, 9);
+      calTime.ms = p.ms; calTime.us = p.us; calTime.ns = p.ns;
+    }
   }
   renderTimeWheels();
   renderCalendar();
@@ -2937,12 +2966,67 @@ function initDateFormatConfig() {
 
 
 
+function updateFracInput() {
+  const digits = currentFracDigits();
+  fracInputEl.style.display = digits > 0 ? '' : 'none';
+  fracInputEl.maxLength = digits || 9;
+  fracInputEl.placeholder = t(digits === 9 ? 'fracPlaceholderNs' : digits === 6 ? 'fracPlaceholderUs' : digits ? 'fracPlaceholderMs' : '');
+  fracInputEl.size = Math.max(digits, 4);
+  if (digits && fracInputEl.value.length > digits) fracInputEl.value = fracInputEl.value.slice(0, digits);
+}
+
+function updatePrecisionIndicators() {
+  const sysPrecision = SYS_SETTINGS.precision;
+  const precisionText = {
+    'sec': '',
+    'ms': '毫秒',
+    'us': '微秒',
+    'ns': '纳秒'
+  };
+  
+  document.querySelectorAll('.tab').forEach((tabEl) => {
+    const tab = tabEl.dataset.tab;
+    const indicator = tabEl.querySelector('.precision-indicator');
+    
+    if (indicator) {
+      // 根据系统精度和当前TAB决定是否显示提示
+      let showIndicator = false;
+      let text = '';
+      
+      if (sysPrecision === 'ms') {
+        if (tab === 'us' || tab === 'ns') {
+          showIndicator = true;
+          text = '毫秒';
+        }
+      } else if (sysPrecision === 'us') {
+        if (tab === 'ns') {
+          showIndicator = true;
+          text = '微秒';
+        }
+      }
+      
+      if (showIndicator) {
+        indicator.textContent = text;
+        indicator.classList.add('show');
+      } else {
+        indicator.classList.remove('show');
+      }
+    }
+  });
+}
+
 function switchTab(tab) {
   currentTab = tab;
+  document.body.classList.toggle('tab-sec', tab === 'sec');
+  document.body.classList.toggle('tab-ms', tab === 'ms');
   document.body.classList.toggle('tab-us', tab === 'us');
   document.body.classList.toggle('tab-ns', tab === 'ns');
   document.body.classList.toggle('prec-us', precisionGe('us'));
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
+  
+  // 更新精度提示标识
+  updatePrecisionIndicators();
+  
   if (tab === 'sec') {
     tsInput.placeholder = t('tsPlaceholderSec');
   } else if (tab === 'ms') {
@@ -2952,9 +3036,7 @@ function switchTab(tab) {
   } else if (tab === 'ns') {
     tsInput.placeholder = t('tsPlaceholderNs');
   }
-  msInputEl.style.display = (tab === 'ms' || tab === 'us' || tab === 'ns') && precisionGe('ms') ? '' : 'none';
-  usInputEl.style.display = (tab === 'us' || tab === 'ns') && precisionGe('us') ? '' : 'none';
-  nsInputEl.style.display = tab === 'ns' && precisionGe('ns') ? '' : 'none';
+  updateFracInput();
   
   timeInputEl.placeholder = t('timePlaceholder');
   reformatTimeInput();
@@ -2970,17 +3052,15 @@ function reformatTimeInput() {
   if (parts && parts.length >= 2) {
     const frac = parts[2] && parts[2].split('.')[1];
     if (frac) {
-      const f = frac.padEnd(9, '0').slice(0, 9);
-      msInputEl.value = String(+f.slice(0, 3)).padStart(3, '0');
-      usInputEl.value = String(+f.slice(3, 6)).padStart(3, '0');
-      nsInputEl.value = String(+f.slice(6, 9)).padStart(3, '0');
+      const digits = currentFracDigits();
+      fracInputEl.value = frac.padEnd(digits || 9, '0').slice(0, digits || 9);
       parts[2] = parts[2].split('.')[0];
     }
     if (currentTab === 'us' && precisionGe('us')) {
-      if (!usInputEl.value.trim()) usInputEl.value = '000';
+      if (!fracInputEl.value.trim()) fracInputEl.value = '000000';
     } else if (currentTab === 'ns') {
-      if (precisionGe('us') && !usInputEl.value.trim()) usInputEl.value = '000';
-      if (precisionGe('ns') && !nsInputEl.value.trim()) nsInputEl.value = '000';
+      if (precisionGe('ns') && !fracInputEl.value.trim()) fracInputEl.value = '000000000';
+      else if (precisionGe('us') && !fracInputEl.value.trim()) fracInputEl.value = '000000';
     }
     timeInputEl.value = `${parts[0]}:${parts[1]}${parts[2] ? ':' + parts[2] : ''}`;
   }
@@ -3479,6 +3559,10 @@ function applyLang() {
   btnLang.textContent = lang === 'zh' ? 'EN' : '中';
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   
+  // 保存当前时区值
+  const savedTzValue = timezoneEl.value;
+  const savedInputTzValue = inputTzEl.value;
+  
   // 按UTC偏移量排序时区
   const sortedTimezones = [...TIMEZONES].sort((a, b) => {
     return offsetMinutes(new Date(), a.value) - offsetMinutes(new Date(), b.value);
@@ -3495,9 +3579,16 @@ function applyLang() {
   }).join('');
   
   // 首次加载时默认选中本地时区（innerHTML 赋值后 select 会自动选中第一个 option，需显式覆盖）
+  // 非首次加载时恢复之前保存的时区值
   if (!tzInitApplied) {
     timezoneEl.value = guessLocalTzName() || 'Asia/Shanghai';
     tzInitApplied = true;
+  } else {
+    timezoneEl.value = savedTzValue;
+    // 如果保存的时区不在选项中（如自定义时区），回退到本地时区
+    if (timezoneEl.value !== savedTzValue) {
+      timezoneEl.value = guessLocalTzName() || 'Asia/Shanghai';
+    }
   }
   
   inputTzEl.innerHTML = sortedTimezones.map((z) => {
@@ -3508,7 +3599,11 @@ function applyLang() {
     return `<option value="${z.value}" title="${text}">${text}</option>`;
   }).join('');
   inputTzEl.title = lang === 'zh' ? '输入时区：日期按此时区解析' : 'Input timezone: dates parsed in this zone';
-  if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) inputTzEl.value = timezoneEl.value;
+  // 保持输入时区不变
+  inputTzEl.value = savedInputTzValue;
+  if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) {
+    inputTzEl.value = timezoneEl.value;
+  }
   btnPause.textContent = paused ? t('resume') : t('pause');
   if (currentTab === 'sec') {
     tsInput.placeholder = t('tsPlaceholderSec');
@@ -3523,12 +3618,7 @@ function applyLang() {
   updateDateToTsTitle();
   dateInput.placeholder = t('datePlaceholder');
   timeInputEl.placeholder = t('timePlaceholder');
-  msInputEl.placeholder = t('msPlaceholder');
-  usInputEl.placeholder = 'us';
-  nsInputEl.placeholder = 'ns';
-  msInputEl.style.display = (currentTab === 'ms' || currentTab === 'us' || currentTab === 'ns') && precisionGe('ms') ? '' : 'none';
-  usInputEl.style.display = (currentTab === 'us' || currentTab === 'ns') && precisionGe('us') ? '' : 'none';
-  nsInputEl.style.display = currentTab === 'ns' && precisionGe('ns') ? '' : 'none';
+  updateFracInput();
   if (tzSearchEl) tzSearchEl.placeholder = t('tzSearchPlaceholder');
   $('#cal-now').textContent = t('now');
   $('#cal-ok').textContent = t('ok');
@@ -3565,12 +3655,8 @@ dateInput.addEventListener('keydown', (e) => {
 });
 timeInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
 timeInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
-msInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
-msInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
-usInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
-usInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
-nsInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
-nsInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
+fracInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
+fracInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 tsInput.addEventListener('input', () => { renderReverse(); syncClearBtns(); });
 tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 
@@ -3660,9 +3746,7 @@ if (btnDateClear) {
   btnDateClear.addEventListener('click', () => {
     dateInput.value = '';
     timeInputEl.value = '';
-    msInputEl.value = '000';
-    usInputEl.value = '000';
-    nsInputEl.value = '000';
+    fracInputEl.value = '';
     hideSuggestions();
     calendarEl.classList.remove('open');
     syncClearBtns();
@@ -3877,6 +3961,7 @@ applyLang();
 applyTheme();
 initThemeWatcher();
 switchTab(SYS_SETTINGS.defaultTab);
+updatePrecisionIndicators();
 updateNow();
 initTimestampInput();
 initCsb();
