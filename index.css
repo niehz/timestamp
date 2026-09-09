@@ -1,4 +1,5 @@
 :root {
+  /* 颜色变量 */
   --bg: #0f1117;
   --panel: #1a1d27;
   --card: #21253a;
@@ -24,6 +25,29 @@
   --wheel-zero-color: #8a92ad;
   --scrollbar-hover: #5d6480;
   --mono: "Cascadia Code","SF Mono",Consolas,"JetBrains Mono","Courier New",monospace;
+  
+  /* 响应式设计变量 */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  
+  --spacing-xs: 0.25rem;      /* 4px */
+  --spacing-sm: 0.5rem;       /* 8px */
+  --spacing-md: 1rem;         /* 16px */
+  --spacing-lg: 1.5rem;      /* 24px */
+  --spacing-xl: 2rem;         /* 32px */
+  
+  --border-radius-sm: 0.5rem; /* 8px */
+  --border-radius-md: 1rem;   /* 16px */
+  
+  --max-width-sm: 40rem;       /* 640px */
+  --max-width-md: 60rem;       /* 960px */
+  
+  /* 响应式断点 */
+  --breakpoint-sm: 768px;
+  --breakpoint-md: 1024px;
+  --breakpoint-lg: 1280px;
 }
 body.theme-light {
   --bg: #d6dce7;
@@ -510,3 +534,315 @@ body.tab-ns .cal-right{min-width:220px}
 .csb-abs .csb-thumb{position:absolute;left:0;right:0;top:0;border-radius:3px;background:var(--border);cursor:pointer;pointer-events:auto;min-height:20px}
 .csb-abs .csb-thumb:hover{background:var(--scrollbar-hover)}
 .csb-abs.show{opacity:1}
+
+/* ================================================== */
+/* 响应式设计 */
+/* ================================================== */
+
+/* 平板设备 (768px 以下) */
+@media (max-width: 768px) {
+  .app {
+    min-width: auto;
+    width: 100%;
+    height: 100vh;
+    padding: var(--spacing-md);
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: stretch;
+  }
+  
+  .header-right {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+  }
+  
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  
+  .tab {
+    flex: 1;
+    min-width: 80px;
+    font-size: var(--font-size-base);
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  .tab-text {
+    font-size: var(--font-size-sm);
+  }
+  
+  .main-grid {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .cards {
+    width: 100%;
+  }
+  
+  .card {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .card-inner {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .left-col, .right-col {
+    width: 100%;
+  }
+  
+  .date-field {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .date-input-row {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+  }
+  
+  .custom-tz-selector {
+    flex-direction: row;
+    justify-content: space-around;
+    margin-top: var(--spacing-md);
+  }
+  
+  .tz-hour-wheel, .tz-min-wheel {
+    width: 80px;
+    height: 120px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+  
+  .modal-lg {
+    max-width: 95%;
+  }
+  
+  .config-section {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .timezone-search {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .timezone-search input {
+    width: 100%;
+  }
+  
+  .custom-tz-form-row {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .custom-tz-form-row input {
+    width: 100%;
+  }
+  
+  .result-value {
+    font-size: var(--font-size-base);
+    word-break: break-all;
+  }
+}
+
+/* 手机设备 (480px 以下) */
+@media (max-width: 480px) {
+  .app {
+    padding: var(--spacing-sm);
+  }
+  
+  .header {
+    padding: var(--spacing-sm);
+  }
+  
+  .tab {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    min-width: 60px;
+  }
+  
+  .tab-text {
+    font-size: 0.75rem;
+  }
+  
+  .card-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .precision-indicator {
+    display: none;
+  }
+  
+  .date-input-row {
+    gap: var(--spacing-xs);
+  }
+  
+  #date-input, #time-input {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-sm);
+  }
+  
+  .result-block {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .result-value {
+    font-size: var(--font-size-base);
+    text-align: center;
+  }
+  
+  .now-grid {
+    gap: var(--spacing-xs);
+  }
+  
+  .now-item {
+    padding: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+  }
+  
+  .now-value {
+    font-size: var(--font-size-base);
+  }
+  
+  .cal-popover {
+    max-width: 90vw;
+    left: 5vw;
+  }
+  
+  .cal-left {
+    min-width: 200px;
+  }
+  
+  .cal-right {
+    min-width: 150px;
+    padding-left: var(--spacing-md);
+  }
+  
+  .cal-time-wheels {
+    gap: var(--spacing-xs);
+  }
+  
+  .wheel {
+    width: 50px;
+    height: 100px;
+  }
+  
+  .wheel-col {
+    flex: 0 0 auto;
+  }
+  
+  .wheel-zero {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+  
+  .sep {
+    font-size: var(--font-size-lg);
+  }
+  
+  .cal-time-actions {
+    gap: var(--spacing-sm);
+  }
+  
+  .btn-primary {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+  
+  .custom-tz-form {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .custom-tz-form-row {
+    gap: var(--spacing-xs);
+  }
+  
+  .custom-tz-form-row input {
+    font-size: var(--font-size-sm);
+  }
+  
+  .donate-qr img {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+/* 横屏手机设备 */
+@media (max-width: 768px) and (orientation: landscape) {
+  .app {
+    padding: var(--spacing-sm);
+  }
+  
+  .header {
+    flex-direction: row;
+    gap: var(--spacing-sm);
+  }
+  
+  .header-right {
+    flex-direction: row;
+    gap: var(--spacing-xs);
+  }
+  
+  .tabs {
+    width: auto;
+  }
+  
+  .main-grid {
+    flex-direction: row;
+  }
+  
+  .cards {
+    flex: 1;
+  }
+  
+  .card {
+    margin-bottom: 0;
+    margin-right: var(--spacing-sm);
+  }
+}
+
+/* 高DPI设备优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .result-value {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* 暗色模式优化 */
+@media (prefers-color-scheme: dark) {
+  .app {
+    background-color: var(--bg);
+  }
+}
+
+/* 亮色模式优化 */
+@media (prefers-color-scheme: light) {
+  body.theme-light {
+    background-color: var(--bg);
+  }
+}
+
+/* 减少动画（用户偏好） */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
