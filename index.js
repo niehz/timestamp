@@ -551,10 +551,6 @@ let lastUpdateTime = 0;
 let timeOffset = 0; // 用于校准的时间偏移
 
 const timezoneEl = $('#timezone');
-console.log('timezoneEl初始化结果:', timezoneEl);
-console.log('timezoneEl类型:', typeof timezoneEl);
-console.log('timezoneEl是否为DOM元素:', timezoneEl instanceof HTMLElement);
-console.log('timezoneEl的value:', timezoneEl?.value);
 const inputTzEl = $('#input-tz');
 const toastEl = $('#toast');
 const nowDateEl = $('#now-date');
@@ -572,19 +568,12 @@ const nsInputEl = $('#ns-input');
 const tsInput = $('#ts-input');
 
 // 调试：输出时间戳输入框的背景色和外层背景色
-console.log('=== 时间戳输入框背景色调试 ===');
 const tsInputComputed = window.getComputedStyle(tsInput);
 const inputBoxComputed = window.getComputedStyle(tsInput.closest('.input-box'));
-console.log('时间戳输入框背景色:', tsInputComputed.backgroundColor);
-console.log('输入框容器背景色:', inputBoxComputed.backgroundColor);
-console.log('document.body背景色:', window.getComputedStyle(document.body).backgroundColor);
-console.log('============================');
-
 // 强制设置时间戳输入框背景色，与日期输入框保持一致
 tsInput.style.backgroundColor = 'var(--panel)';
 // 设置圆滑的边框
 tsInput.style.borderRadius = '12px';
-console.log('已设置时间戳输入框边框为12px圆角');
 const d2tVal = $('#d2t-val');
 const t2dVal = $('#t2d-val');
 const t2dResultEl = $('#t2d-result');
@@ -1584,56 +1573,6 @@ function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   usInputEl.value = typeof us === 'number' && us > 0 ? String(us).padStart(3, '0') : '000';
   nsInputEl.value = typeof ns === 'number' && ns > 0 ? String(ns).padStart(3, '0') : '000';
   
-  // 调试信息：输出输入框和按钮的尺寸和位置
-  if (window.console) {
-    console.log('=== 输入框和按钮调试信息 ===');
-    console.log('date-field:', {
-      width: dateFieldEl.offsetWidth,
-      height: dateFieldEl.offsetHeight,
-      padding: window.getComputedStyle(dateFieldEl).padding
-    });
-    console.log('cal-btn:', {
-      left: btnCalendar.offsetLeft,
-      top: btnCalendar.offsetTop,
-      width: btnCalendar.offsetWidth,
-      height: btnCalendar.offsetHeight
-    });
-    console.log('clear-btn:', {
-      right: btnDateClear.offsetParent.offsetWidth - btnDateClear.offsetLeft - btnDateClear.offsetWidth,
-      top: btnDateClear.offsetTop,
-      width: btnDateClear.offsetWidth,
-      height: btnDateClear.offsetHeight
-    });
-    console.log('date-input:', {
-      left: dateInput.offsetLeft,
-      width: dateInput.offsetWidth,
-      padding: window.getComputedStyle(dateInput).padding
-    });
-    console.log('time-input:', {
-      left: timeInputEl.offsetLeft,
-      width: timeInputEl.offsetWidth,
-      padding: window.getComputedStyle(timeInputEl).padding
-    });
-    console.log('ms-input:', {
-      left: msInputEl.offsetLeft,
-      width: msInputEl.offsetWidth,
-      padding: window.getComputedStyle(msInputEl).padding,
-      display: window.getComputedStyle(msInputEl).display
-    });
-    console.log('us-input:', {
-      left: usInputEl.offsetLeft,
-      width: usInputEl.offsetWidth,
-      padding: window.getComputedStyle(usInputEl).padding,
-      display: window.getComputedStyle(usInputEl).display
-    });
-    console.log('ns-input:', {
-      left: nsInputEl.offsetLeft,
-      width: nsInputEl.offsetWidth,
-      padding: window.getComputedStyle(nsInputEl).padding,
-      display: window.getComputedStyle(nsInputEl).display
-    });
-  }
-  
   syncClearBtns();
 }
 
@@ -2049,8 +1988,7 @@ function openCalendar() {
   renderCalendar();
   calendarEl.classList.add('open');
   syncTimeInput();
-  if (window.console) console.log('[debug openCalendar]', 'tab=' + currentTab, 'systemTime=' + new Date().toString(), 'inputTz=' + inputTzEl.value, 'calTime=', JSON.stringify(calTime), 'dateIn=' + JSON.stringify(dateInput.value), 'timeIn=' + JSON.stringify(timeInputEl.value), 'msIn=' + JSON.stringify(msInputEl.value), 'usIn=' + JSON.stringify(usInputEl.value), 'nsIn=' + JSON.stringify(nsInputEl.value), 'timeInputDom=' + JSON.stringify(calTimeInputEl.value));
-}
+  }
 
 function closeCalendar() { calendarEl.classList.remove('open'); }
 
@@ -2133,14 +2071,6 @@ function applyWheelTime() {
 function clampWheel(i, max) { return i < 0 ? 0 : (i > max ? max : i); }
 
 function highlightWheel(el, idx) {
-  console.log('=== highlightWheel 被调用 ===');
-  console.log('元素:', el);
-  console.log('选中索引:', idx);
-  console.log('子元素数量:', el.children.length);
-  console.log('当前滚动位置:', el.scrollTop);
-  console.log('元素高度:', el.offsetHeight);
-  console.log('元素可见高度:', el.clientHeight);
-  console.log('元素滚动高度:', el.scrollHeight);
   
   Array.prototype.forEach.call(el.children, (c, i) => {
     const wasSel = c.classList.contains('sel');
@@ -2148,27 +2078,10 @@ function highlightWheel(el, idx) {
     c.classList.toggle('sel', willBeSel);
     
     if (wasSel !== willBeSel) {
-      console.log(`wheel-item ${i}: ${wasSel ? '移除' : '添加'} sel 类`);
       if (willBeSel) {
-        console.log('=== 选中项详细信息 ===');
-        console.log('元素文本:', c.textContent);
-        console.log('元素尺寸:', {
-          offsetHeight: c.offsetHeight,
-          clientHeight: c.clientHeight,
-          scrollHeight: c.scrollHeight,
-          height: c.style.height,
-          lineHeight: c.style.lineHeight,
-          paddingTop: c.style.paddingTop,
-          paddingBottom: c.style.paddingBottom,
-          borderTop: c.style.borderTop,
-          borderBottom: c.style.borderBottom
-        });
-        console.log('计算样式:', getComputedStyle(c));
-        console.log('=== 选中项详细信息结束 ===');
       }
     }
   });
-  console.log('=== highlightWheel 调用结束 ===');
 }
 
 function wheelIndexFromScrollTop(el) {
@@ -2287,7 +2200,6 @@ function updateNow() {
     lastSec = Math.floor(currentRealTime / 1000);
     lastMs = currentRealTime;
     lastUpdateTime = now;
-    console.log('时间校准 - 当前时间:', new Date(currentRealTime).toLocaleString());
   } else {
     // 获取当前的真实秒数
     const currentSec = Math.floor(currentRealTime / 1000);
@@ -2295,7 +2207,6 @@ function updateNow() {
     // 更新秒数
     if (currentSec !== lastSec) {
       lastSec = currentSec;
-      console.log('秒数变化:', lastSec);
     }
     
     lastMs = lastSec * 1000 + simulatedMs;
@@ -2326,7 +2237,6 @@ function updateNow() {
   
   // 每秒输出一次毫秒变化信息
   if (lastUpdateTime % 1000 < 50) {
-    console.log('当前毫秒:', lastMs % 1000, '秒数:', lastSec);
   }
 }
 
@@ -3046,27 +2956,6 @@ function switchTab(tab) {
   usInputEl.style.display = (tab === 'us' || tab === 'ns') && precisionGe('us') ? '' : 'none';
   nsInputEl.style.display = tab === 'ns' && precisionGe('ns') ? '' : 'none';
   
-  // 调试信息：切换 tab 时输出输入框状态
-  if (window.console) {
-    console.log('=== 切换 tab 调试信息 ===');
-    console.log('当前 tab:', tab);
-    console.log('精度设置:', {
-      ms: precisionGe('ms'),
-      us: precisionGe('us'),
-      ns: precisionGe('ns')
-    });
-    console.log('输入框显示状态:', {
-      ms: msInputEl.style.display,
-      us: usInputEl.style.display,
-      ns: nsInputEl.style.display
-    });
-    console.log('输入框位置和尺寸:', {
-      ms: msInputEl.offsetLeft ? `left: ${msInputEl.offsetLeft}, width: ${msInputEl.offsetWidth}` : 'hidden',
-      us: usInputEl.offsetLeft ? `left: ${usInputEl.offsetLeft}, width: ${usInputEl.offsetWidth}` : 'hidden',
-      ns: nsInputEl.offsetLeft ? `left: ${nsInputEl.offsetLeft}, width: ${nsInputEl.offsetWidth}` : 'hidden'
-    });
-  }
-  
   timeInputEl.placeholder = t('timePlaceholder');
   reformatTimeInput();
   toggleNowPanel();
@@ -3158,7 +3047,6 @@ function createTzOffsetOptions() {
 // 基于现有滚轮实现的时区选择器
 // 基于现有滚轮实现的时区选择器
 function initCustomTzSelector() {
-  console.log('开始初始化双滚轮时区选择器...');
   
   // 获取DOM元素
   const hourWheel = $('#tz-hour-wheel');
@@ -3168,18 +3056,15 @@ function initCustomTzSelector() {
   
   // 确保全局时区选择器有默认值
   if (timezoneEl && !timezoneEl.value) {
-    console.log('全局时区选择器为空，设置默认值为 Asia/Shanghai');
     timezoneEl.value = 'Asia/Shanghai';
   }
   
   // 确保输入时区选择器与全局时区选择器同步
   if (inputTz && timezoneEl && inputTz.value !== timezoneEl.value) {
-    console.log('同步输入时区选择器与全局时区选择器:', timezoneEl.value);
     inputTz.value = timezoneEl.value;
   }
   
   if (!hourWheel || !minWheel || !inputTz) {
-    console.error('双滚轮时区选择器元素未找到');
     return;
   }
   
@@ -3195,16 +3080,6 @@ function initCustomTzSelector() {
   
     // 构建小时滚轮
     function buildHourWheel() {
-      console.log('构建小时滚轮...');
-      console.log('hourWheel 容器信息:', {
-        offsetHeight: hourWheel.offsetHeight,
-        clientHeight: hourWheel.clientHeight,
-        scrollHeight: hourWheel.scrollHeight,
-        paddingTop: hourWheel.style.paddingTop,
-        paddingBottom: hourWheel.style.paddingBottom,
-        borderTop: hourWheel.style.borderTop,
-        borderBottom: hourWheel.style.borderBottom
-      });
       
       hourWheel.innerHTML = '';
       hourWheel.style.paddingTop = '3px';
@@ -3224,116 +3099,68 @@ function initCustomTzSelector() {
         hourWheel.appendChild(item);
       }
     
-    console.log('构建完成后 hourWheel:', {
-      offsetHeight: hourWheel.offsetHeight,
-      clientHeight: hourWheel.clientHeight,
-      scrollHeight: hourWheel.scrollHeight,
-      childrenCount: hourWheel.children.length,
-      computedStyle: getComputedStyle(hourWheel)
-    });
     
     // 打印第一个 wheel-item 的信息
     if (hourWheel.children.length > 1) { // 第一个是 hint
       const firstItem = hourWheel.children[1];
-      console.log('第一个 wheel-item:', {
-        offsetHeight: firstItem.offsetHeight,
-        clientHeight: firstItem.clientHeight,
-        scrollHeight: firstItem.scrollHeight,
-        height: firstItem.style.height,
-        lineHeight: firstItem.style.lineHeight,
-        paddingTop: firstItem.style.paddingTop,
-        paddingBottom: firstItem.style.paddingBottom,
-        borderTop: firstItem.style.borderTop,
-        borderBottom: firstItem.style.borderBottom
-      });
     }
     
     // 设置初始选中值 - 默认使用全局时区
-    console.log('=== 小时滚轮初始化开始 ===');
-    console.log('inputTz.value:', inputTz.value);
-    console.log('timezoneEl.value:', timezoneEl.value);
-    console.log('inputTz元素:', inputTz);
-    console.log('timezoneEl元素:', timezoneEl);
     
     const currentTz = inputTz.value || timezoneEl.value || 'UTC';
-    console.log('最终使用的时区:', currentTz);
-    console.log('时区元素是否存在:', !!timezoneEl);
-    console.log('时区元素值类型:', typeof timezoneEl.value);
     
     try {
-      console.log('开始计算offsetMinutes...');
       const mins = offsetMinutes(new Date(), currentTz);
-      console.log('offsetMinutes结果:', mins);
       
       const hour = Math.floor(Math.abs(mins) / 60) * (mins >= 0 ? 1 : -1);
-      console.log('计算的小时值:', hour);
       
       // 将小时转换为 +08 格式
       const hourStr = hour >= 0 ? '+' + hour.toString().padStart(2, '0') : hour.toString();
-      console.log('格式化的小时字符串:', hourStr);
       
       const hourIndex = hours.indexOf(hourStr);
-      console.log('在hours数组中的索引:', hourIndex);
-      console.log('hours数组:', hours);
       
       if (hourIndex >= 0) {
-        console.log('设置小时滚轮选中索引:', hourIndex);
         selectWheelValue(hourWheel, hourIndex, (selectedIndex) => {
           updateHourFromWheel(hours[selectedIndex]);
         });
       } else {
         // 如果计算失败，默认选择UTC (+00)
-        console.log('小时偏移计算失败，使用默认UTC (索引12)');
         selectWheelValue(hourWheel, 12, (selectedIndex) => {
           updateHourFromWheel(hours[selectedIndex]);
         });
       }
     } catch (error) {
-      console.error('计算小时偏移时出错:', error);
       // 默认选择UTC (+00)
-      console.log('捕获异常，使用默认UTC (索引12)');
       selectWheelValue(hourWheel, 12, (selectedIndex) => {
         updateHourFromWheel(hours[selectedIndex]);
       });
     }
-    console.log('=== 小时滚轮初始化结束 ===');
     
     // 添加滚轮事件 - 实现真正的循环滚动
     hourWheel.addEventListener('wheel', (e) => {
       e.preventDefault();
       const dir = e.deltaY > 0 ? 1 : -1;
       
-      console.log('=== 小时滚轮滚轮事件触发 ===');
-      console.log('滚动方向:', dir > 0 ? '向下' : '向上');
-      console.log('当前选中索引:', hourWheel._sel);
-      console.log('当前滚动位置:', hourWheel.scrollTop);
-      console.log('滚轮事件deltaY:', e.deltaY);
       
       // 计算新的索引
       let ni = hourWheel._sel + dir;
-      console.log('计算后的新索引:', ni);
       
       // 处理循环逻辑
       if (ni < 0) {
         // 向上循环：从-12跳到+12
         ni = hours.length - 1; // 24 = +12
-        console.log('向上循环: -12 -> +12');
       } else if (ni >= hours.length) {
         // 向下循环：从+12跳到-12
         ni = 0; // 0 = -12
-        console.log('向下循环: +12 -> -12');
       }
       
-      console.log('最终索引:', ni);
       
       if (ni === hourWheel._sel) {
-        console.log('索引未变化，取消滚动');
         return;
       }
       
       // 强制设置滚动位置到目标
       const targetScrollTop = ni * 34;
-      console.log('目标滚动位置:', targetScrollTop);
       
       // 立即设置滚动位置
       hourWheel.scrollTop = targetScrollTop;
@@ -3347,56 +3174,35 @@ function initCustomTzSelector() {
       
       // 验证滚动设置
       setTimeout(() => {
-        console.log('验证滚动位置:', hourWheel.scrollTop, '期望:', targetScrollTop);
         if (hourWheel.scrollTop !== targetScrollTop) {
-          console.log('滚动设置失败，强制调整');
           hourWheel.scrollTop = targetScrollTop;
         }
         hourWheel._suspend = false;
-        console.log('小时滚轮滚动锁定解除');
       }, 50);
       
       // 更新时区
       updateHourFromWheel(hours[ni]);
-      console.log('=== 小时滚轮处理完成 ===');
     }, { passive: false });
     
     // 恢复原有的滚动监听器
     hourWheel.addEventListener('scroll', () => {
       if (hourWheel._suspend) {
-        console.log('小时滚轮滚动被锁定，忽略滚动事件');
         return;
       }
       
       const idx = wheelIndexFromScrollTop(hourWheel);
-      console.log('=== 小时滚轮滚动事件 ===');
-      console.log('滚动位置:', hourWheel.scrollTop);
-      console.log('计算出的索引:', idx);
-      console.log('当前选中索引:', hourWheel._sel);
       
       if (idx !== hourWheel._sel) { 
-        console.log('索引变化，更新选中状态');
         hourWheel._sel = idx; 
         highlightWheel(hourWheel, idx); 
         updateHourFromWheel(hours[idx]); 
       } else {
-        console.log('索引未变化，保持当前状态');
       }
     });
   }
   
     // 构建分钟滚轮
     function buildMinWheel() {
-      console.log('构建分钟滚轮...');
-      console.log('minWheel 容器信息:', {
-        offsetHeight: minWheel.offsetHeight,
-        clientHeight: minWheel.clientHeight,
-        scrollHeight: minWheel.scrollHeight,
-        paddingTop: minWheel.style.paddingTop,
-        paddingBottom: minWheel.style.paddingBottom,
-        borderTop: minWheel.style.borderTop,
-        borderBottom: minWheel.style.borderBottom
-      });
       
       minWheel.innerHTML = '';
       minWheel.style.paddingTop = '3px';
@@ -3416,113 +3222,69 @@ function initCustomTzSelector() {
         minWheel.appendChild(item);
       }
     
-      console.log('构建完成后 minWheel:', {
-        offsetHeight: minWheel.offsetHeight,
-        clientHeight: minWheel.clientHeight,
-        scrollHeight: minWheel.scrollHeight,
-        childrenCount: minWheel.children.length,
-        computedStyle: getComputedStyle(minWheel)
-      });
     
     // 打印第一个 wheel-item 的信息
     if (minWheel.children.length > 1) { // 第一个是 hint
       const firstItem = minWheel.children[1];
-      console.log('第一个 wheel-item:', {
-        offsetHeight: firstItem.offsetHeight,
-        clientHeight: firstItem.clientHeight,
-        scrollHeight: firstItem.scrollHeight,
-        height: firstItem.style.height,
-        lineHeight: firstItem.style.lineHeight,
-        paddingTop: firstItem.style.paddingTop,
-        paddingBottom: firstItem.style.paddingBottom,
-        borderTop: firstItem.style.borderTop,
-        borderBottom: firstItem.style.borderBottom
-      });
     }
     
     // 设置初始选中值 - 默认使用全局时区
-    console.log('=== 分钟滚轮初始化开始 ===');
-    console.log('inputTz.value:', inputTz.value);
-    console.log('timezoneEl.value:', timezoneEl.value);
     
     const currentTz = inputTz.value || timezoneEl.value || 'UTC';
-    console.log('最终使用的时区:', currentTz);
     
     try {
-      console.log('开始计算offsetMinutes...');
       const mins = offsetMinutes(new Date(), currentTz);
-      console.log('offsetMinutes结果:', mins);
       
       const min = (mins % 60);
-      console.log('计算的分钟值:', min);
       
       const closestMin = minutes.reduce((prev, curr) => {
         return Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev;
       });
-      console.log('最接近的分钟值:', closestMin);
       
       const minIndex = minutes.indexOf(closestMin);
-      console.log('在minutes数组中的索引:', minIndex);
-      console.log('minutes数组:', minutes);
       
       if (minIndex >= 0) {
-        console.log('设置分钟滚轮选中索引:', minIndex);
         selectWheelValue(minWheel, minIndex, (selectedIndex) => {
           updateMinFromWheel(minutes[selectedIndex]);
         });
       } else {
         // 如果计算失败，默认选择00
-        console.log('分钟偏移计算失败，使用默认00 (索引0)');
         selectWheelValue(minWheel, 0, (selectedIndex) => {
           updateMinFromWheel(minutes[selectedIndex]);
         });
       }
     } catch (error) {
-      console.error('计算分钟偏移时出错:', error);
       // 默认选择00
-      console.log('捕获异常，使用默认00 (索引0)');
       selectWheelValue(minWheel, 0, (selectedIndex) => {
         updateMinFromWheel(minutes[selectedIndex]);
       });
     }
-    console.log('=== 分钟滚轮初始化结束 ===');
     
     // 添加滚轮事件 - 实现真正的循环滚动
     minWheel.addEventListener('wheel', (e) => {
       e.preventDefault();
       const dir = e.deltaY > 0 ? 1 : -1;
       
-      console.log('=== 分钟滚轮滚轮事件触发 ===');
-      console.log('滚动方向:', dir > 0 ? '向下' : '向上');
-      console.log('当前选中索引:', minWheel._sel);
-      console.log('当前滚动位置:', minWheel.scrollTop);
-      console.log('滚轮事件deltaY:', e.deltaY);
       
       // 计算新的索引
       let ni = minWheel._sel + dir;
-      console.log('计算后的新索引:', ni);
       
       // 处理循环逻辑
       if (ni < 0) {
         // 向上循环：从00跳到45
         ni = minutes.length - 1; // 3 = 45
-        console.log('向上循环: 00 -> 45');
       } else if (ni >= minutes.length) {
         // 向下循环：从45跳到00
         ni = 0; // 0 = 00
-        console.log('向下循环: 45 -> 00');
       }
       
-      console.log('最终索引:', ni);
       
       if (ni === minWheel._sel) {
-        console.log('索引未变化，取消滚动');
         return;
       }
       
       // 强制设置滚动位置到目标
       const targetScrollTop = ni * 34;
-      console.log('目标滚动位置:', targetScrollTop);
       
       // 立即设置滚动位置
       minWheel.scrollTop = targetScrollTop;
@@ -3536,40 +3298,29 @@ function initCustomTzSelector() {
       
       // 验证滚动设置
       setTimeout(() => {
-        console.log('验证滚动位置:', minWheel.scrollTop, '期望:', targetScrollTop);
         if (minWheel.scrollTop !== targetScrollTop) {
-          console.log('滚动设置失败，强制调整');
           minWheel.scrollTop = targetScrollTop;
         }
         minWheel._suspend = false;
-        console.log('分钟滚轮滚动锁定解除');
       }, 50);
       
       // 更新时区
       updateMinFromWheel(minutes[ni]);
-      console.log('=== 分钟滚轮处理完成 ===');
     }, { passive: false });
     
     // 恢复原有的滚动监听器
     minWheel.addEventListener('scroll', () => {
       if (minWheel._suspend) {
-        console.log('分钟滚轮滚动被锁定，忽略滚动事件');
         return;
       }
       
       const idx = wheelIndexFromScrollTop(minWheel);
-      console.log('=== 分钟滚轮滚动事件 ===');
-      console.log('滚动位置:', minWheel.scrollTop);
-      console.log('计算出的索引:', idx);
-      console.log('当前选中索引:', minWheel._sel);
       
       if (idx !== minWheel._sel) { 
-        console.log('索引变化，更新选中状态');
         minWheel._sel = idx; 
         highlightWheel(minWheel, idx); 
         updateMinFromWheel(minutes[idx]); 
       } else {
-        console.log('索引未变化，保持当前状态');
       }
     });
   }
@@ -3621,7 +3372,6 @@ function initCustomTzSelector() {
       inputTz.value = globalTz;
       inputTzCustom = false;
       updateDateToTsTitle();
-      console.log('重置到全局时区:', globalTz);
       
       // 重置时间校准
       timeOffset = 0;
@@ -3642,12 +3392,10 @@ function initCustomTzSelector() {
         });
         const minIndex = minutes.indexOf(closestMin);
         
-        console.log('重置后滚轮值:', { hour, hourStr, hourIndex, min, closestMin, minIndex });
         
         if (hourIndex >= 0) selectWheelValue(hourWheel, hourIndex);
         if (minIndex >= 0) selectWheelValue(minWheel, minIndex);
       } catch (error) {
-        console.error('重置滚轮时出错:', error);
         // 出错时重置到UTC
         selectWheelValue(hourWheel, 12); // +00 = UTC
         selectWheelValue(minWheel, 0);   // 00
@@ -3661,7 +3409,6 @@ function initCustomTzSelector() {
   // 监听原始选择器变化
   inputTz.addEventListener('change', () => {
     const targetTz = inputTz.value || timezoneEl.value || 'UTC';
-    console.log('时区选择器变化，目标时区:', targetTz);
     
     try {
       const mins = offsetMinutes(new Date(), targetTz);
@@ -3676,12 +3423,10 @@ function initCustomTzSelector() {
       });
       const minIndex = minutes.indexOf(closestMin);
       
-      console.log('更新滚轮:', { hour, hourStr, hourIndex, min, closestMin, minIndex });
       
       if (hourIndex >= 0) selectWheelValue(hourWheel, hourIndex);
       if (minIndex >= 0) selectWheelValue(minWheel, minIndex);
     } catch (error) {
-      console.error('更新滚轮时出错:', error);
       // 出错时重置到UTC
       selectWheelValue(hourWheel, 12); // +00 = UTC
       selectWheelValue(minWheel, 0);   // 00
@@ -3689,12 +3434,6 @@ function initCustomTzSelector() {
   });
   
   // 初始化滚轮
-  console.log('=== 开始构建时区滚轮 ===');
-  console.log('当前DOM状态:');
-  console.log('hourWheel存在:', !!hourWheel);
-  console.log('minWheel存在:', !!minWheel);
-  console.log('inputTz存在:', !!inputTz);
-  console.log('timezoneEl存在:', !!timezoneEl);
   
   buildHourWheel();
   buildMinWheel();
@@ -3702,9 +3441,7 @@ function initCustomTzSelector() {
   inputTzCustom = inputTz.value !== timezoneEl.value;
   updateDateToTsTitle();
   
-  console.log('=== 时区滚轮构建完成 ===');
   
-  console.log('双滚轮时区选择器初始化完成');
 }
 
 function updateTsToDateTitle() {
@@ -4169,10 +3906,8 @@ if (window.utools) {
   // 延迟初始化双滚轮时区选择器，避免阻塞
   setTimeout(() => {
     try {
-      console.log('准备调用initCustomTzSelector...');
       initCustomTzSelector();
     } catch (error) {
-      console.error('初始化双滚轮时区选择器失败:', error);
     }
   }, 100);
 }
