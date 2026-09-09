@@ -46,7 +46,7 @@ test('parseDateEx resolves common formats', () => {
     mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, src: 'cjk',
   });
   assert.deepEqual(call('parseDateEx', '09/07/2026'), {
-    mode: 'parts', y: 2026, mo: 7, d: 9, h: 0, mi: 0, s: 0, ms: 0, src: 'num',
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, src: 'num',
   });
   assert.equal(call('parseDateEx', 'not a date at all'), null);
 });

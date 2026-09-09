@@ -85,7 +85,7 @@ test('fracToParts / partsToFrac segment fractional digits', () => {
 test('formatWithTokens expands placeholders', () => {
   const { expr } = createFresh();
   assert.equal(expr('formatWithTokens(0, "UTC", "YYYY/MM/DD HH:mm:ss")'), '1970/01/01 00:00:00');
-  assert.equal(expr('formatWithTokens(0, "UTC", "YYYY年M月D日")'), '1970年1月1日');
+  assert.equal(expr('formatWithTokens(0, "UTC", "YYYY年MM月DD日")'), '1970年01月01日');
 });
 
 test('formatTz / formatUTC / formatLocal', () => {

@@ -9,7 +9,7 @@
     "check:html": "node dev/scripts/validate.mjs --checks=html",
     "check:i18n": "node dev/scripts/validate.mjs --checks=i18n",
     "test:load": "node dev/scripts/load-test.mjs",
-    "test": "node --test dev/tests/",
+    "test": "node --test \"dev/tests/*.test.mjs\"",
     "lint": "npm run check:plugin && npm run check:js && npm run check:html && npm run check:i18n",
     "verify": "npm run lint && npm run test:load && npm test"
   }

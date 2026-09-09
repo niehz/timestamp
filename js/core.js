@@ -819,8 +819,9 @@ function parseOffsetInput(str) {
   if (mm === undefined) mm = 0;
   if (mm >= 60) return null;
   const total = hh * 60 + mm;
-  if (total > 14 * 60 || total < -12 * 60) return null;
-  return total * sign;
+  const adj = total * sign;
+  if (adj > 14 * 60 || adj < -12 * 60) return null;
+  return adj;
 }
 
 function isValidIana(tz) {
