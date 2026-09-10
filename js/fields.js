@@ -281,9 +281,9 @@ function showSuggestions() {
   const items = buildSuggestions(dateInput.value);
   if (!items.length) { dateSuggestEl.classList.remove('open'); return; }
   dateSuggestEl.innerHTML = items.map((it) =>
-    `<div class="sg-item" data-date="${it.date}" ${it.month ? `data-month="${it.month}"` : ''}>
-      <span class="sg-desc">${it.desc}</span>
-      <span class="sg-date">${it.date}</span>
+    `<div class="sg-item" data-date="${escapeAttr(it.date)}" ${it.month ? `data-month="${escapeAttr(it.month)}"` : ''}>
+      <span class="sg-desc">${escapeAttr(it.desc)}</span>
+      <span class="sg-date">${escapeAttr(it.date)}</span>
     </div>`).join('');
   dateSuggestEl.classList.add('open');
   dateSuggestEl.dataset.monthMark = items.some((i) => i.month) ? '1' : '';

@@ -14,7 +14,7 @@ import vm from 'node:vm';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
 
-export const ORDER = ['core', 'datetime', 'fields', 'calendar', 'convert', 'tzselector', 'events'];
+export const ORDER = ['utils/constants', 'data/timezones', 'i18n', 'utils/validators', 'utils/error-handler', 'core', 'datetime', 'fields', 'calendar', 'convert', 'tzselector', 'events'];
 
 export function makeUniv() {
   let proxy;

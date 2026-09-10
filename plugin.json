@@ -1,4 +1,6 @@
 {
+  "name": "timestamp-tool",
+  "developer": "timestamp-developer",
   "main": "index.html",
   "logo": "logo.png",
   "preload": "preload.js",
