@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IANA时区功能演示</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .demo-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    
+    .demo-section h2 {
+      color: #555;
+      margin-top: 0;
+    }
+    
+    .demo-result {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    
+    .demo-controls {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+    
+    .demo-btn {
+      padding: 8px 16px;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .demo-btn:hover {
+      background: #0056b3;
+    }
+    
+    .demo-input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .timezone-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .timezone-card {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      background: #f8f9fa;
+    }
+    
+    .timezone-card h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .timezone-card .info {
+      font-size: 14px;
+      color: #666;
+      margin: 5px 0;
+    }
+    
+    .historical-example {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    
+    .historical-example h4 {
+      color: #856404;
+      margin-top: 0;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #007bff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .success {
+      color: #28a745;
+    }
+    
+    .error {
+      color: #dc3545;
+    }
+    
+    .warning {
+      color: #ffc107;
+    }
+    
+    .info {
+      color: #17a2b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>IANA时区功能演示</h1>
+    
+    <div class="demo-section">
+      <h2>🌍 时区信息查询</h2>
+      <div class="demo-controls">
+        <input type="text" class="demo-input" id="tz-query" placeholder="输入时区名称 (如: Asia/Shanghai)" value="Asia/Shanghai">
+        <button class="demo-btn" onclick="queryTzInfo()">查询时区信息</button>
+        <button class="demo-btn" onclick="showAllTz()">显示所有时区</button>
+      </div>
+      <div id="tz-info-result" class="demo-result">等待查询...</div>
+    </div>
+    
+    <div class="demo-section">
+      <h2>📅 历史时区数据演示</h2>
+      <div class="demo-controls">
+        <input type="number" class="demo-input" id="year-input" placeholder="输入年份" value="1200" min="1" max="9999">
+        <button class="demo-btn" onclick="showHistoricalData()">显示历史数据</button>
+        <button class="demo-btn" onclick="compareHistorical()">对比历史数据</button>
+      </div>
+      <div id="historical-result" class="demo-result">等待查询...</div>
+      
+      <div class="historical-example">
+        <h4>📖 历史时区知识</h4>
+        <p><strong>Asia/Shanghai 时区历史：</strong></p>
+        <ul>
+          <li><strong>1901年之前：</strong>使用 LMT (Local Mean Time)，UTC+08:05:43</li>
+          <li><strong>1901-1928年：</strong>固定偏移 UTC+08:05:43</li>
+          <li><strong>1928年之后：</strong>标准时间 UTC+08:00</li>
+          <li><strong>1986-1991年：</strong>短暂夏令时 UTC+09:00</li>
+        </ul>
+        <p><strong>为什么会有这个变化？</strong></p>
+        <p>这是由于上海地理位置的经度决定的。上海位于东经约121.45°，每15°=1小时，所以121.45/15=8小时5分43秒。在近代标准化时间之前，各地使用本地太阳时。</p>
+      </div>
+    </div>
+    
+    <div class="demo-section">
+      <h2>🔄 时区转换演示</h2>
+      <div class="demo-controls">
+        <input type="datetime-local" class="demo-input" id="datetime-input" value="2023-01-01T12:00">
+        <select class="demo-input" id="tz-select">
+          <option value="Asia/Shanghai">上海</option>
+          <option value="America/New_York">纽约</option>
+          <option value="Europe/London">伦敦</option>
+          <option value="UTC">UTC</option>
+          <option value="Asia/Tokyo">东京</option>
+        </select>
+        <button class="demo-btn" onclick="convertTimezone()">转换时区</button>
+      </div>
+      <div id="conversion-result" class="demo-result">等待转换...</div>
+    </div>
+    
+    <div class="demo-section">
+      <h2>📊 实时时区监控</h2>
+      <div class="demo-controls">
+        <button class="demo-btn" onclick="startRealtimeMonitor()">开始监控</button>
+        <button class="demo-btn" onclick="stopRealtimeMonitor()">停止监控</button>
+      </div>
+      <div id="realtime-monitor" class="demo-result">等待开始...</div>
+    </div>
+    
+    <div class="demo-section">
+      <h2>🎯 关键功能测试</h2>
+      <div class="demo-controls">
+        <button class="demo-btn" onclick="testHistoricalOffsets()">测试历史偏移</button>
+        <button class="demo-btn" onclick="testPerformance()">性能测试</button>
+        <button class="demo-btn" onclick="testEdgeCases()">边界情况测试</button>
+      </div>
+      <div id="test-result" class="demo-result">等待测试...</div>
+    </div>
+  </div>
+
+  <!-- 引入IANA时区库 -->
+  <script src="js/timezone/iana-timezone.js"></script>
+  
+  <script>
+    let monitorInterval;
+    let currentTz = 'Asia/Shanghai';
+    
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('IANA时区演示页面已加载');
+      
+      // 自动加载Luxon库
+      IanaTimezone.loadLuxon().then(() => {
+        console.log('Luxon库加载成功');
+        document.getElementById('tz-info-result').innerHTML = '<span class="success">✓ Luxon库加载成功</span>';
+      }).catch(error => {
+        console.error('Luxon库加载失败:', error);
+        document.getElementById('tz-info-result').innerHTML = `<span class="error">✗ Luxon库加载失败: ${error.message}</span>`;
+      });
+    });
+    
+    // 查询时区信息
+    async function queryTzInfo() {
+      const tzName = document.getElementById('tz-query').value;
+      const resultDiv = document.getElementById('tz-info-result');
+      
+      if (!tzName) {
+        resultDiv.innerHTML = '<span class="error">请输入时区名称</span>';
+        return;
+      }
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在查询...';
+      
+      try {
+        const now = new Date();
+        const tzInfo = IanaTimezone.getTzInfo(now, tzName);
+        const supportsHistorical = IanaTimezone.supportsHistoricalData(tzName);
+        
+        resultDiv.innerHTML = `
+时区: ${tzName}
+当前偏移: ${IanaTimezone.formatOffset(tzInfo.offset)}
+时区名称: ${tzInfo.name}
+缩写: ${tzInfo.abbreviation}
+夏令时: ${tzInfo.isDst ? '是' : '否'}
+支持历史数据: ${supportsHistorical ? '是' : '否'}
+        `.trim();
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">查询失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 显示所有时区
+    async function showAllTz() {
+      const resultDiv = document.getElementById('tz-info-result');
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在加载时区列表...';
+      
+      try {
+        const timezones = IanaTimezone.getAllAvailableTimeZones();
+        const enhancedTz = IanaTimezone.getEnhancedTzList();
+        
+        resultDiv.innerHTML = `
+可用时区总数: ${timezones.length}
+支持历史数据的时区: ${enhancedTz.filter(tz => tz.supportsHistorical).length}
+
+主要时区列表:
+${enhancedTz.slice(0, 10).map(tz => 
+  `• ${tz.label} (${tz.value}) - ${tz.currentOffsetFormatted} ${tz.supportsHistorical ? '[历史支持]' : ''}`
+).join('\n')}
+... 还有 ${enhancedTz.length - 10} 个时区
+        `.trim();
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">加载失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 显示历史数据
+    async function showHistoricalData() {
+      const year = parseInt(document.getElementById('year-input').value);
+      const resultDiv = document.getElementById('historical-result');
+      
+      if (!year || year < 1 || year > 9999) {
+        resultDiv.innerHTML = '<span class="error">请输入有效的年份 (1-9999)</span>';
+        return;
+      }
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在查询历史数据...';
+      
+      try {
+        const testTimezones = ['Asia/Shanghai', 'America/New_York', 'Europe/London'];
+        let results = `=== ${year}年历史时区数据 ===\n\n`;
+        
+        for (const tz of testTimezones) {
+          const historical = IanaTimezone.getTzHistoricalInfo(tz, year);
+          const currentOffset = IanaTimezone.getTzOffset(new Date(), tz);
+          
+          results += `${tz}:\n`;
+          results += `  支持历史数据: ${historical.hasHistoricalData ? '是' : '否'}\n`;
+          results += `  历史偏移: ${historical.hasHistoricalData ? IanaTimezone.formatOffset(historical.historicalOffset) : 'N/A'}\n`;
+          results += `  当前偏移: ${IanaTimezone.formatOffset(currentOffset)}\n`;
+          results += `  说明: ${historical.notes}\n`;
+          results += `  ${historical.hasHistoricalData && historical.historicalOffset !== currentOffset ? '⚠️ 与当前偏移不同' : ''}\n\n`;
+        }
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">查询失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 对比历史数据
+    async function compareHistorical() {
+      const resultDiv = document.getElementById('historical-result');
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在对比历史数据...';
+      
+      try {
+        const years = [1200, 1900, 1950, 2000, 2023];
+        const tz = 'Asia/Shanghai';
+        
+        let results = `=== ${tz} 历史偏移对比 ===\n\n`;
+        
+        for (const year of years) {
+          const historical = IanaTimezone.getTzHistoricalInfo(tz, year);
+          const currentOffset = IanaTimezone.getTzOffset(new Date(), tz);
+          
+          results += `${year}年: `;
+          if (historical.hasHistoricalData) {
+            results += `${IanaTimezone.formatOffset(historical.historicalOffset)}`;
+            if (historical.historicalOffset !== currentOffset) {
+              results += ` ⚠️ (当前: ${IanaTimezone.formatOffset(currentOffset)})`;
+            }
+          } else {
+            results += '无历史数据';
+          }
+          results += `\n`;
+        }
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">对比失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 时区转换
+    async function convertTimezone() {
+      const datetime = document.getElementById('datetime-input').value;
+      const tz = document.getElementById('tz-select').value;
+      const resultDiv = document.getElementById('conversion-result');
+      
+      if (!datetime) {
+        resultDiv.innerHTML = '<span class="error">请输入日期时间</span>';
+        return;
+      }
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在转换...';
+      
+      try {
+        const date = new Date(datetime);
+        const formats = [
+          'yyyy-MM-dd HH:mm:ss',
+          'yyyy年MM月dd日 HH:mm:ss',
+          'yyyy/MM/dd HH:mm:ss',
+          "yyyy-MM-dd'T'HH:mm:ss"
+        ];
+        
+        let results = `=== ${datetime} 在 ${tz} 的转换结果 ===\n\n`;
+        
+        for (const format of formats) {
+          const formatted = IanaTimezone.formatTzDate(date, tz, format);
+          const offset = IanaTimezone.getTzOffset(date, tz);
+          results += `${format}: ${formatted} (${IanaTimezone.formatOffset(offset)})\n`;
+        }
+        
+        // 对比不同时区
+        results += `\n=== 不同时区对比 ===\n`;
+        const timezones = ['UTC', 'Asia/Shanghai', 'America/New_York', 'Europe/London'];
+        
+        for (const compareTz of timezones) {
+          const formatted = IanaTimezone.formatTzDate(date, compareTz, 'yyyy-MM-dd HH:mm:ss');
+          const offset = IanaTimezone.getTzOffset(date, compareTz);
+          results += `${compareTz}: ${formatted} (${IanaTimezone.formatOffset(offset)})\n`;
+        }
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">转换失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 开始实时监控
+    async function startRealtimeMonitor() {
+      const monitorDiv = document.getElementById('realtime-monitor');
+      
+      if (monitorInterval) {
+        clearInterval(monitorInterval);
+      }
+      
+      monitorDiv.innerHTML = '<span class="loading"></span>开始监控...';
+      
+      monitorInterval = setInterval(async () => {
+        try {
+          const now = new Date();
+          const timezones = ['Asia/Shanghai', 'America/New_York', 'Europe/London', 'UTC'];
+          
+          let results = `=== 实时时区监控 (${now.toLocaleString()}) ===\n\n`;
+          
+          for (const tz of timezones) {
+            const offset = IanaTimezone.getTzOffset(now, tz);
+            const formatted = IanaTimezone.formatTzDate(now, tz, 'yyyy-MM-dd HH:mm:ss');
+            results += `${tz}: ${formatted} (${IanaTimezone.formatOffset(offset)})\n`;
+          }
+          
+          monitorDiv.innerHTML = `<pre>${results}</pre>`;
+          
+        } catch (error) {
+          monitorDiv.innerHTML = `<span class="error">监控失败: ${error.message}</span>`;
+          clearInterval(monitorInterval);
+        }
+      }, 1000);
+    }
+    
+    // 停止实时监控
+    function stopRealtimeMonitor() {
+      if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+      }
+      
+      const monitorDiv = document.getElementById('realtime-monitor');
+      monitorDiv.innerHTML = '监控已停止';
+    }
+    
+    // 测试历史偏移
+    async function testHistoricalOffsets() {
+      const resultDiv = document.getElementById('test-result');
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在测试历史偏移...';
+      
+      try {
+        const testCases = [
+          { tz: 'Asia/Shanghai', year: 1200, expected: 'LMT' },
+          { tz: 'Asia/Shanghai', year: 1900, expected: 'UTC+08:05:43' },
+          { tz: 'Asia/Shanghai', year: 2023, expected: 'UTC+08:00' },
+          { tz: 'Europe/London', year: 1800, expected: 'LMT' },
+          { tz: 'America/New_York', year: 1800, expected: 'LMT' }
+        ];
+        
+        let results = '=== 历史偏移测试结果 ===\n\n';
+        let passed = 0;
+        
+        for (const testCase of testCases) {
+          try {
+            const historical = IanaTimezone.getTzHistoricalInfo(testCase.tz, testCase.year);
+            const status = historical.hasHistoricalData ? '✓' : '✗';
+            
+            results += `${status} ${testCase.tz} (${testCase.year}年): ${historical.notes}\n`;
+            
+            if (historical.hasHistoricalData) {
+              results += `   偏移: ${IanaTimezone.formatOffset(historical.historicalOffset)}\n`;
+              results += `   期望: ${testCase.expected}\n`;
+            }
+            
+            if (historical.hasHistoricalData) {
+              passed++;
+            }
+            
+          } catch (error) {
+            results += `✗ ${testCase.tz} (${testCase.year}年): 测试失败 - ${error.message}\n`;
+          }
+        }
+        
+        results += `\n测试结果: ${passed}/${testCases.length} 通过\n`;
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">测试失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 性能测试
+    async function testPerformance() {
+      const resultDiv = document.getElementById('test-result');
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在运行性能测试...';
+      
+      try {
+        const testTimezones = ['Asia/Shanghai', 'America/New_York', 'Europe/London', 'UTC'];
+        const iterations = 1000;
+        const testDate = new Date('2023-01-01T12:00:00Z');
+        
+        // 测试时区偏移计算性能
+        const startTime = performance.now();
+        for (let i = 0; i < iterations; i++) {
+          for (const tz of testTimezones) {
+            IanaTimezone.getTzOffset(testDate, tz);
+          }
+        }
+        const endTime = performance.now();
+        
+        const avgTime = (endTime - startTime) / (iterations * testTimezones.length);
+        
+        // 测试时区格式化性能
+        const formatStartTime = performance.now();
+        for (let i = 0; i < iterations; i++) {
+          for (const tz of testTimezones) {
+            IanaTimezone.formatTzDate(testDate, tz, 'yyyy-MM-dd HH:mm:ss');
+          }
+        }
+        const formatEndTime = performance.now();
+        
+        const formatAvgTime = (formatEndTime - formatStartTime) / (iterations * testTimezones.length);
+        
+        let results = '=== 性能测试结果 ===\n\n';
+        results += `测试环境: ${navigator.userAgent}\n`;
+        results += `测试日期: ${testDate.toISOString()}\n`;
+        results += `迭代次数: ${iterations}\n`;
+        results += `测试时区: ${testTimezones.join(', ')}\n\n`;
+        
+        results += `时区偏移计算:\n`;
+        results += `  总时间: ${(endTime - startTime).toFixed(2)}ms\n`;
+        results += `  平均时间: ${avgTime.toFixed(4)}ms/次\n`;
+        results += `  评估: ${avgTime < 0.1 ? '优秀' : avgTime < 0.5 ? '良好' : '需要优化'}\n\n`;
+        
+        results += `时区格式化:\n`;
+        results += `  总时间: ${(formatEndTime - formatStartTime).toFixed(2)}ms\n`;
+        results += `  平均时间: ${formatAvgTime.toFixed(4)}ms/次\n`;
+        results += `  评估: ${formatAvgTime < 0.2 ? '优秀' : formatAvgTime < 1.0 ? '良好' : '需要优化'}\n\n`;
+        
+        results += `总体评估: ${avgTime < 0.1 && formatAvgTime < 0.2 ? '优秀' : '良好'}\n`;
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">性能测试失败: ${error.message}</span>`;
+      }
+    }
+    
+    // 边界情况测试
+    async function testEdgeCases() {
+      const resultDiv = document.getElementById('test-result');
+      
+      resultDiv.innerHTML = '<span class="loading"></span>正在测试边界情况...';
+      
+      try {
+        const testCases = [
+          { name: '无效时区', tz: 'Invalid/Timezone', date: new Date() },
+          { name: '空时区', tz: '', date: new Date() },
+          { name: '极端日期', tz: 'Asia/Shanghai', date: new Date('0001-01-01T00:00:00Z') },
+          { name: '未来日期', tz: 'Asia/Shanghai', date: new Date('9999-12-31T23:59:59Z') },
+          { name: '闰秒日期', tz: 'UTC', date: new Date('2016-12-31T23:59:60Z') }
+        ];
+        
+        let results = '=== 边界情况测试结果 ===\n\n';
+        
+        for (const testCase of testCases) {
+          try {
+            const offset = IanaTimezone.getTzOffset(testCase.date, testCase.tz);
+            const formatted = IanaTimezone.formatTzDate(testCase.date, testCase.tz, 'yyyy-MM-dd HH:mm:ss');
+            
+            results += `✓ ${testCase.name}:\n`;
+            results += `  日期: ${testCase.date.toISOString()}\n`;
+            results += `  时区: ${testCase.tz}\n`;
+            results += `  偏移: ${IanaTimezone.formatOffset(offset)}\n`;
+            results += `  格式化: ${formatted}\n\n`;
+            
+          } catch (error) {
+            results += `✗ ${testCase.name}: ${error.message}\n\n`;
+          }
+        }
+        
+        resultDiv.innerHTML = `<pre>${results}</pre>`;
+        
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">边界测试失败: ${error.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
