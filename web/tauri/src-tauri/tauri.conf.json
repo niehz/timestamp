@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "timestamp-converter",
+  "version": "1.0.0",
+  "identifier": "com.timestamp.converter",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "http://localhost:8787",
+    "beforeBuildCommand": "node ../../scripts/build-standalone.mjs",
+    "frontendDist": "../../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "时间戳转换器 / Timestamp Converter",
+        "width": 960,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 560,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all"
+  }
+}

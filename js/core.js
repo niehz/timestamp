@@ -23,7 +23,7 @@ function zoneAliases(z) {
 let TIMEZONES = loadTzConfig();
 let tzInitApplied = false;
 
-const SYS_DEFAULTS = { defaultTab: 'sec', precision: 'ns', theme: 'auto', usNsMode: 'derive' };
+const SYS_DEFAULTS = { defaultTab: 'sec', precision: 'ns', theme: 'auto', usNsMode: 'derive', lang: 'auto', autoPrecisionTab: false };
 let SYS_SETTINGS = loadSysSettings();
 function loadSysSettings() {
   let s = null;
@@ -41,7 +41,14 @@ function loadSysSettings() {
   if (!['sec', 'ms', 'us', 'ns'].includes(s.precision)) s.precision = SYS_DEFAULTS.precision;
   if (!['auto', 'dark', 'light'].includes(s.theme)) s.theme = SYS_DEFAULTS.theme;
   if (!['derive', 'random'].includes(s.usNsMode)) s.usNsMode = SYS_DEFAULTS.usNsMode;
+  if (!['auto', 'zh', 'en'].includes(s.lang)) s.lang = SYS_DEFAULTS.lang;
+  s.autoPrecisionTab = s.autoPrecisionTab === true;
   return s;
+}
+function resolveLang(mode) {
+  if (mode === 'zh' || mode === 'en') return mode;
+  const navLang = typeof navigator !== 'undefined' ? (navigator.language || '') : '';
+  return /^zh/i.test(navLang) ? 'zh' : 'en';
 }
 const PRECISION_ORDER = { sec: 0, ms: 1, us: 2, ns: 3 };
 function precisionGe(level) {
@@ -68,7 +75,7 @@ function saveSysSettings() {
   try { localStorage.setItem('sys_settings', JSON.stringify(SYS_SETTINGS)); } catch (e) {}
 }
 
-let lang = 'zh';
+let lang = resolveLang(SYS_SETTINGS.lang);
 const BUILD = 'v1.0.0';
 let currentTab = 'sec';
 let inputTzCustom = false;
@@ -601,6 +608,8 @@ function renderSysConfig() {
   setFilterValue('sys-precision', SYS_SETTINGS.precision);
   setFilterValue('sys-theme', SYS_SETTINGS.theme);
   setFilterValue('sys-usns', SYS_SETTINGS.usNsMode);
+  setFilterValue('sys-lang', lang);
+  setFilterValue('sys-auto-precision', SYS_SETTINGS.autoPrecisionTab ? 'auto' : 'default');
 }
 function applySysField(id, value) {
   if (id === 'sys-default-tab') {
@@ -611,12 +620,22 @@ function applySysField(id, value) {
     SYS_SETTINGS.theme = value || SYS_DEFAULTS.theme;
   } else if (id === 'sys-usns') {
     SYS_SETTINGS.usNsMode = value || SYS_DEFAULTS.usNsMode;
+  } else if (id === 'sys-lang') {
+    SYS_SETTINGS.lang = (value === 'zh' || value === 'en') ? value : SYS_DEFAULTS.lang;
+  } else if (id === 'sys-auto-precision') {
+    SYS_SETTINGS.autoPrecisionTab = value === 'auto';
   }
   saveSysSettings();
   if (id === 'sys-precision') {
     switchTab(currentTab);
     updatePrecisionIndicators();
   } else if (id === 'sys-theme') applyTheme();
+  else if (id === 'sys-lang') {
+    lang = resolveLang(SYS_SETTINGS.lang);
+    applyLang();
+    renderConvert();
+    renderReverse();
+  }
 }
 function resetSysConfig() {
   SYS_SETTINGS = { ...SYS_DEFAULTS };
@@ -625,12 +644,16 @@ function resetSysConfig() {
   applyTheme();
   switchTab(currentTab);
   updatePrecisionIndicators();
+  lang = resolveLang(SYS_SETTINGS.lang);
+  applyLang();
+  renderConvert();
+  renderReverse();
   toast(t('sysReset'));
 }
 function initSysConfig() {
   const resetBtn = $('#reset-sys-config');
   if (resetBtn) resetBtn.addEventListener('click', resetSysConfig);
-  ['sys-default-tab', 'sys-precision', 'sys-theme', 'sys-usns'].forEach(id => {
+  ['sys-default-tab', 'sys-precision', 'sys-theme', 'sys-usns', 'sys-lang', 'sys-auto-precision'].forEach(id => {
     const g = document.getElementById(id);
     if (!g) return;
     g.addEventListener('click', (e) => {

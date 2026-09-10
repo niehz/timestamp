@@ -20,7 +20,7 @@ function applyParsedToFields(pe) {
   if (pe.tz != null) applyParsedTz(pe.tz);
   const tz = inputTzEl.value || timezoneEl.value;
   if (pe.mode === 'parts') {
-    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms, 0, 0);
+    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms, pe.us || 0, pe.ns || 0);
   } else {
     const p = tzParts(new Date(pe.abs), tz);
     if (!p) return;

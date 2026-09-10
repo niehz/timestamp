@@ -5,7 +5,7 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
-function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); }
+function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; SYS_SETTINGS.lang = lang; saveSysSettings(); applyLang(); renderConvert(); renderReverse(); }
 
 timezoneEl.addEventListener('change', () => { 
   if (!inputTzCustom) {
@@ -33,6 +33,30 @@ fracInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); 
 fracInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 tsInput.addEventListener('input', () => { renderReverse(); syncClearBtns(); });
 tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
+
+// 全局 ESC：优先关闭弹窗/浮层，避免直接退出 uTools（capture 阶段先于输入框 bubble 处理器）
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modal = document.querySelector('.modal.show');
+  if (modal) {
+    modal.classList.remove('show');
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  if (calendarEl.classList.contains('open')) {
+    closeCalendar();
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  if (dateSuggestEl.classList.contains('open')) {
+    hideSuggestions();
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+}, true);
 
 $('#btn-calendar').addEventListener('click', () => {
   if (calendarEl.classList.contains('open')) closeCalendar();
@@ -340,25 +364,34 @@ updateNow();
 initTimestampInput();
 initCsb();
 
+// uTools onPluginEnter 与 Web 模式 (?payload=) 共用的人口解析逻辑
+// 日期字符串：解析后填充「日期 → 时间戳」的日期输入框（含毫秒/微秒/纳秒/时区联动）；
+// 开关「按日期字符串精度自动选择」开启时，主页 TAB 页随字符串小数位自动切换
+function handleEnterPayload(payload) {
+  const p = payload && payload.trim();
+  if (!p) { initTimestampInput(); tsInput.focus(); return; }
+  if (/^\d{19}$/.test(p)) { switchTab('ns'); tsInput.value = p; renderReverse(); }
+  else if (/^\d{16}$/.test(p)) { switchTab('us'); tsInput.value = p; renderReverse(); }
+  else if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
+  else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
+  else {
+    const pe = parseDateEx(p);
+    if (pe) {
+      if (SYS_SETTINGS.autoPrecisionTab) switchTab(fracToTab(pe));
+      applyParsedToFields(pe);
+      timeInputEl.focus();
+      renderConvert();
+      return;
+    } else {
+      initTimestampInput();
+    }
+  }
+  tsInput.focus();
+}
+
 if (window.utools) {
   utools.onPluginEnter(({ payload }) => {
-    const p = payload && payload.trim();
-    if (!p) { initTimestampInput(); tsInput.focus(); return; }
-    if (/^\d{19}$/.test(p)) { switchTab('ns'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{16}$/.test(p)) { switchTab('us'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
-    else {
-      const pe = parseDateEx(p);
-      if (pe) {
-        applyParsedToFields(pe);
-        timeInputEl.focus();
-        renderConvert();
-      } else {
-        initTimestampInput();
-      }
-    }
-    tsInput.focus();
+    handleEnterPayload(payload);
   });
   try { utools.setExpendHeight(560); } catch (e) {}
 }

@@ -59,6 +59,7 @@ async function initTimestampInput() {
     tsInput.value = '';
     const pe = parseDateEx(text);
     if (pe) {
+      if (SYS_SETTINGS.autoPrecisionTab) switchTab(fracToTab(pe));
       applyParsedToFields(pe);
       renderConvert();
       showSuggestions();

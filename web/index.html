@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self';">
   <title>时间戳转换器 / Timestamp Converter</title>
-  <link rel="stylesheet" href="index.css?v=1789670000000">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="../logo.png">
+  <link rel="stylesheet" href="../index.css">
 </head>
 <body>
   <div class="app">
@@ -414,7 +417,7 @@
       <div class="modal-body donate-body">
         <p class="config-desc" data-i18n="donateDesc">如果这个工具帮到了你，可以请我喝杯咖啡 ☕</p>
         <div class="donate-qr">
-          <img src="assets/donate_wechat.png" alt="微信赞赏码">
+          <img src="../assets/donate_wechat.png" alt="微信赞赏码">
         </div>
         <p class="config-desc" data-i18n="donateThanks">感谢你的支持</p>
       </div>
@@ -422,18 +425,20 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="js/utils/constants.js"></script>
-  <script src="js/data/timezones.js"></script>
-  <script src="js/i18n.js"></script>
-  <script src="js/utils/validators.js"></script>
-  <script src="js/utils/error-handler.js"></script>
+  <script src="../js/utils/constants.js"></script>
+  <script src="../js/data/timezones.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/utils/validators.js"></script>
+  <script src="../js/utils/error-handler.js"></script>
   <script>setupGlobalErrorTrap();</script>
-  <script src="js/core.js?v=1789670000000"></script>
-  <script src="js/datetime.js?v=1789670000000"></script>
-  <script src="js/fields.js?v=1789670000000"></script>
-  <script src="js/calendar.js?v=1789670000000"></script>
-  <script src="js/convert.js?v=1789670000000"></script>
-  <script src="js/tzselector.js?v=1789670000000"></script>
-  <script src="js/events.js?v=1789670000000"></script>
+  <script src="../js/core.js"></script>
+  <script src="../js/datetime.js"></script>
+  <script src="../js/fields.js"></script>
+  <script src="../js/calendar.js"></script>
+  <script src="../js/convert.js"></script>
+  <script src="../js/tzselector.js"></script>
+  <script src="../js/events.js"></script>
+  <script src="web-boot.js"></script>
+  <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});</script>
 </body>
 </html>

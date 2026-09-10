@@ -180,6 +180,25 @@ function fracToMs(f) {
   const s = String(f).split('.')[1] || String(f);
   return Math.round(Number('0.' + s.slice(0, 3).padEnd(3, '0')) * 1000);
 }
+function fracParts(f) {
+  const raw = String(f == null ? '' : f);
+  const s = raw.split('.')[1] || raw || '';
+  const p = s.padEnd(9, '0').slice(0, 9);
+  return { ms: +p.slice(0, 3) || 0, us: +p.slice(3, 6) || 0, ns: +p.slice(6, 9) || 0 };
+}
+function fracDigitsOf(s) {
+  const m = /\.(\d{1,9})/.exec(String(s == null ? '' : s));
+  return m ? m[1].length : 0;
+}
+// 「按日期字符串精度自动选择」时，把解析结果映射到主页精度 TAB 页
+function fracToTab(pe) {
+  if (pe.mode === 'abs') return new Date(Math.floor(pe.abs)).getMilliseconds() ? 'ms' : 'sec';
+  const d = pe.fd || 0;
+  if (d >= 9) return 'ns';
+  if (d >= 6) return 'us';
+  if (d > 0) return 'ms';
+  return 'sec';
+}
 function validYmd(y, mo, d) {
   return y >= 1 && y <= 9999 && mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
 }
@@ -190,15 +209,15 @@ function parseIsoFmt(s) {
   if (compact) {
     const y = +compact[1], mo = +compact[2], d = +compact[3];
     const h = +compact[4], mi = +compact[5], se = compact[6] != null ? +compact[6] : 0;
-    const ms = fracToMs(compact[7]);
+    const fp = fracParts(compact[7]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
     const zone = compact[8];
-    if (!zone) return { mode: 'parts', y, mo, d, h, mi, s: se, ms };
-    if (/^z$/i.test(zone)) return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: 'UTC', value: 'UTC', offset: 0 } };
+    if (!zone) return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns };
+    if (/^z$/i.test(zone)) return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns, tz: { label: 'UTC', value: 'UTC', offset: 0 } };
     const om = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
     if (om) {
       const offset = (+om[2] * 60 + +om[3]) * (om[1] === '-' ? -1 : 1);
-      return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: `${om[1]}${om[2]}:${om[3]}`, offset, value: `FIXED:${om[1]}${om[2]}${om[3]}` } };
+      return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns, tz: { label: `${om[1]}${om[2]}:${om[3]}`, offset, value: `FIXED:${om[1]}${om[2]}${om[3]}` } };
     }
     return null;
   }
@@ -225,7 +244,8 @@ function parseYmdFmt(s) {
   const y = +m[1], mo = +m[2], d = +m[3];
   const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+  const fp = fracParts(m[7]);
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns };
 }
 function parseCjkFmt(s) {
   const m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
@@ -233,7 +253,8 @@ function parseCjkFmt(s) {
   const y = +m[1], mo = +m[2], d = +m[3];
   const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+  const fp = fracParts(m[7]);
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns };
 }
 function parseRfcmFmt(s) {
   if (!/[A-Za-z]{3,}/.test(s)) return null;
@@ -250,7 +271,8 @@ function parseNumFmt(s) {
     const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
     const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+    const fp = fracParts(m[7]);
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp.ms, us: fp.us, ns: fp.ns };
   }
   const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
   if (yl) {
@@ -259,7 +281,8 @@ function parseNumFmt(s) {
     const y = new Date().getFullYear();
     const h = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(yl[6]) };
+    const fp2 = fracParts(yl[6]);
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fp2.ms, us: fp2.us, ns: fp2.ns };
   }
   return null;
 }
@@ -310,6 +333,8 @@ function parseCustomPlaceholder(pattern, s) {
   if (out.mi != null) r.mi = out.mi; else r.mi = 0;
   if (out.s != null) r.s = out.s; else r.s = 0;
   if (out.ms != null) r.ms = out.ms; else r.ms = 0;
+  r.us = 0;
+  r.ns = 0;
   return r;
 }
 function parseCustomRegex(pattern, s) {
@@ -321,7 +346,7 @@ function parseCustomRegex(pattern, s) {
   const g = mm.groups || {};
   const num = (v) => (v == null || v === '' ? null : +v);
   const y = num(g.y), mo = num(g.mo), d = num(g.d);
-  const h = num(g.h), mi = num(g.mi), se = num(g.s), ms = num(g.ms);
+  const h = num(g.h), mi = num(g.mi), se = num(g.s), ms = num(g.ms), us = num(g.us), ns = num(g.ns);
   if ((y == null || mo == null || d == null) && !(y != null && mo == null && (g.d == null))) {
     return null;
   }
@@ -331,13 +356,13 @@ function parseCustomRegex(pattern, s) {
   const outMo = mo != null ? mo : 1;
   const outD = d != null ? d : 1;
   if (!validYmd(outY, outMo, outD) || (h != null && h > 23) || (mi != null && mi > 59) || (se != null && se > 59)) return null;
-  return { mode: 'parts', y: outY, mo: outMo, d: outD, h: h != null ? h : 0, mi: mi != null ? mi : 0, s: se != null ? se : 0, ms: ms != null ? ms : 0 };
+  return { mode: 'parts', y: outY, mo: outMo, d: outD, h: h != null ? h : 0, mi: mi != null ? mi : 0, s: se != null ? se : 0, ms: ms != null ? ms : 0, us: us != null ? us : 0, ns: ns != null ? ns : 0 };
 }
 function parseDateEx(text) {
   const s = text.trim();
   if (!s) return null;
   const rel = parseRelative(s);
-  if (rel) return { mode: 'parts', y: rel.y, mo: rel.mo, d: rel.d, h: 0, mi: 0, s: 0, ms: 0 };
+  if (rel) return { mode: 'parts', y: rel.y, mo: rel.mo, d: rel.d, h: 0, mi: 0, s: 0, ms: 0, fd: 0 };
   const split = splitZone(s);
   const base = split.base;
   const tz = split.tz;
@@ -348,6 +373,7 @@ function parseDateEx(text) {
     let r = rule.type === 'regex' ? parseCustomRegex(rule.pattern, base) : parseCustomPlaceholder(rule.pattern, base);
     if (r) {
       if (tz && r.mode === 'parts') r.tz = tz;
+      if (r.mode === 'parts' && r.fd == null) r.fd = fracDigitsOf(base);
       r.src = 'custom';
       r.customId = rule.id;
       return r;
@@ -363,6 +389,7 @@ function parseDateEx(text) {
     else if (f.id === 'num') r = parseNumFmt(base);
     if (r) {
       if (tz && r.mode === 'parts') r.tz = tz;
+      if (r.mode === 'parts' && r.fd == null) r.fd = fracDigitsOf(base);
       r.src = f.id;
       return r;
     }
