@@ -60,6 +60,7 @@ export function makeEl() {
   return new Proxy(handlers, {
     get(t, p) {
       if (p === '__isStub') return true;
+      if (p === Symbol.toPrimitive) return () => '';
       if (Reflect.has(t, p)) return t[p];
       return univ;
     },
@@ -94,6 +95,8 @@ export function createSandbox() {
     title: '',
   }, {
     get(t, p) {
+      if (p === '__isStub') return true;
+      if (p === Symbol.toPrimitive) return () => '';
       if (Reflect.has(t, p)) return t[p];
       return makeEl();
     },
@@ -142,6 +145,17 @@ export function moduleCode() {
 }
 
 export function loadModules(sandbox) {
+  // Ensure the sandbox is a real vm Context, and model the browser: window/self/
+  // globalThis must be the context's global object. core.js does
+  // `Object.assign(window, commonUtils)` to expose helpers like bindEvents —
+  // only when window === globalThis do those become reachable as bare globals.
+  if (!sandbox.__isContext) {
+    sandbox.__isContext = true;
+    vm.createContext(sandbox);
+    sandbox.window = sandbox;
+    sandbox.self = sandbox;
+    sandbox.globalThis = sandbox;
+  }
   vm.runInNewContext(moduleCode(), sandbox, { filename: 'plugin.js' });
   return sandbox;
 }

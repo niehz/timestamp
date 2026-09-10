@@ -1,16 +1,33 @@
 /**
  * 工具函数模块 - 通用助手
+ * 
+ * 提供通用的 DOM 操作、事件处理、数据操作等辅助函数
+ * 这些函数被设计为可重用的工具函数，简化常见操作
+ * 
+ * @module helpers
+ * @author timestamp-developer
+ * @version 1.0.0
  */
 
 import { debounce, throttle } from './validators.js';
 
 /**
  * 创建DOM元素
- * @param {string} tag - 标签名
- * @param {string} className - 类名
- * @param {string} text - 文本内容
- * @param {Object} attributes - 属性对象
+ * 便捷的DOM元素创建函数，支持设置类名、文本内容和属性
+ * 避免重复的 document.createElement 和属性设置代码
+ * 
+ * @param {string} tag - 标签名（如 'div', 'span', 'button'）
+ * @param {string} className - CSS类名（可选）
+ * @param {string} text - 文本内容（可选）
+ * @param {Object} attributes - 属性对象键值对（可选）
  * @returns {HTMLElement} 创建的DOM元素
+ * 
+ * @example
+ * createElement('div', 'card', 'Hello World', {id: 'my-div'});
+ * // 创建：<div class="card" id="my-div">Hello World</div>
+ * 
+ * createElement('button', 'btn-primary'); 
+ * // 创建：<button class="btn-primary"></button>
  */
 export function createElement(tag, className = '', text = '', attributes = {}) {
   const element = document.createElement(tag);
@@ -32,9 +49,15 @@ export function createElement(tag, className = '', text = '', attributes = {}) {
 
 /**
  * 查找DOM元素
- * @param {string} selector - 选择器
- * @param {HTMLElement} context - 上下文元素
- * @returns {HTMLElement|null} 找到的元素
+ * 封装 document.querySelector，支持指定上下文元素
+ * 
+ * @param {string} selector - CSS选择器
+ * @param {HTMLElement|Document} context - 查找上下文（默认document）
+ * @returns {HTMLElement|null} 找到的元素，未找到返回null
+ * 
+ * @example
+ * findElement('.my-class'); // 在document中查找
+ * findElement('#my-id', container); // 在container元素中查找
  */
 export function findElement(selector, context = document) {
   return context.querySelector(selector);
@@ -42,9 +65,15 @@ export function findElement(selector, context = document) {
 
 /**
  * 查找所有DOM元素
- * @param {string} selector - 选择器
- * @param {HTMLElement} context - 上下文元素
+ * 封装 document.querySelectorAll，支持指定上下文元素
+ * 
+ * @param {string} selector - CSS选择器
+ * @param {HTMLElement|Document} context - 查找上下文（默认document）
  * @returns {NodeList} 找到的元素列表
+ * 
+ * @example
+ * findAllElements('.my-class'); // 在document中查找所有
+ * findAllElements('div.card', container); // 在container中查找div.card
  */
 export function findAllElements(selector, context = document) {
   return context.querySelectorAll(selector);

@@ -1,3 +1,18 @@
+/**
+ * @module core
+ * @description js/core.js — 基础工具/常量、i18n 数据、系统设置、时区数据与配置 UI
+ * @author Extracted from index.js (lines 1-1141) by dev/scripts/split.mjs
+ * @version 1.0.0
+ * 
+ * 本模块是时间戳转换插件的核心模块，提供了基础工具函数、常量定义、国际化数据、
+ * 系统设置管理、时区数据处理以及配置UI功能。按以下顺序加载：
+ * core → datetime → fields → calendar → convert → tzselector → events
+ * 
+ * @requires DOM
+ * @requires localStorage
+ * @requires Intl
+ */
+
 // ========================================================
 // js/core.js — 基础工具/常量、i18n 数据、系统设置、时区数据与配置 UI
 // Extracted from index.js (lines 1-1141) by
@@ -5,13 +20,219 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+/**
+ * 简化的DOM元素选择器函数
+ * @param {string} s - CSS选择器字符串
+ * @returns {Element|null} 匹配的DOM元素，如果没有找到则返回null
+ * @example
+ * const element = $('#myElement');
+ * const elements = $('.myClass');
+ */
 const $ = (s) => document.querySelector(s);
 
+// 导入公共函数库
+try {
+  // 动态导入公共函数库
+  const commonUtils = {
+    addEventListener: (selector, event, handler, options) => {
+      const element = typeof selector === 'string' ? $(selector) : selector;
+      if (element) {
+        element.addEventListener(event, handler, options);
+      }
+      return element;
+    },
+    
+    bindEvents: (bindings) => {
+      Object.entries(bindings).forEach(([selector, events]) => {
+        Object.entries(events).forEach(([event, handler]) => {
+          addEventListener(selector, event, handler);
+        });
+      });
+    },
+    
+    safeSetHtml: (selector, html) => {
+      const element = typeof selector === 'string' ? $(selector) : selector;
+      if (element) {
+        try {
+          element.innerHTML = html;
+        } catch (e) {
+          console.error(`设置HTML内容错误: ${selector}`, e);
+        }
+      }
+    },
+    
+    safeSetText: (selector, text) => {
+      const element = typeof selector === 'string' ? $(selector) : selector;
+      if (element) {
+        try {
+          element.textContent = text;
+        } catch (e) {
+          console.error(`设置文本内容错误: ${selector}`, e);
+        }
+      }
+    },
+    
+    toggleClass: (selector, className, force) => {
+      const element = typeof selector === 'string' ? $(selector) : selector;
+      if (element) {
+        element.classList.toggle(className, force);
+      }
+    },
+    
+    handleError: (error, message = '', logToConsole = true) => {
+      if (logToConsole) {
+        console.error('错误:', error);
+        if (message) {
+          console.error('消息:', message);
+        }
+      }
+      
+      // 显示用户友好的错误提示
+      const userMessage = message || t('invalidTs');
+      toast(userMessage);
+    },
+    
+    withErrorHandling: (fn, errorMessage) => {
+      return function(...args) {
+        try {
+          return fn.apply(this, args);
+        } catch (error) {
+          handleError(error, errorMessage);
+          return null;
+        }
+      };
+    },
+    
+    safeExecute: (fn, ...args) => {
+      try {
+        return fn(...args);
+      } catch (error) {
+        handleError(error);
+        return null;
+      }
+    },
+    
+    debounce: (fn, ms) => {
+      let timer = null;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), ms);
+      };
+    },
+    
+    throttle: (fn, ms) => {
+      let lastCall = 0;
+      return (...args) => {
+        const now = Date.now();
+        if (now - lastCall >= ms) {
+          lastCall = now;
+          return fn(...args);
+        }
+      };
+    },
+    
+    padZero: (n, width = 2) => String(n).padStart(width, '0'),
+    
+    isEmpty: (value) => {
+      if (value == null) return true;
+      if (typeof value === 'string') return value.trim() === '';
+      if (Array.isArray(value)) return value.length === 0;
+      if (typeof value === 'object') return Object.keys(value).length === 0;
+      return false;
+    },
+    
+    deepClone: (obj) => {
+      if (obj === null || typeof obj !== 'object') return obj;
+      if (obj instanceof Date) return new Date(obj);
+      if (obj instanceof Array) return obj.map(item => deepClone(item));
+      if (obj instanceof Object) {
+        const cloned = {};
+        Object.keys(obj).forEach(key => {
+          cloned[key] = deepClone(obj[key]);
+        });
+        return cloned;
+      }
+      return obj;
+    }
+  };
+  
+  // 将公共函数添加到全局作用域
+  Object.assign(window, commonUtils);
+} catch (e) {
+  console.error('加载公共函数库失败:', e);
+}
+
+/**
+ * JavaScript Date对象支持的最小时间戳值（-100,000,000天）
+ * @constant {number}
+ * @description JavaScript Date对象的最小有效时间戳值，对应1970年1月1日之前约273,753年
+ * @see MAX_TS
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_date_time_string_format
+ */
 const MIN_TS = -8640000000000000;
+
+/**
+ * JavaScript Date对象支持的最大时间戳值（+100,000,000天）
+ * @constant {number}
+ * @description JavaScript Date对象的最大有效时间戳值，对应1970年1月1日之后约273,753年
+ * @see MIN_TS
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_date_time_string_format
+ */
 const MAX_TS = 8640000000000000;
 
+/**
+ * 验证毫秒时间戳是否在 ECMAScript Date 可表示范围内
+ * @param {number} ms - 毫秒时间戳
+ * @returns {boolean} 是否有效（有限数值且处于 [MIN_TS, MAX_TS]）
+ * @description convert.js 依赖本全局函数做转换前校验；缺失会导致
+ *              日期→时间戳面板在输入时抛出 ReferenceError。
+ */
+function validateTimestamp(ms) {
+  return Number.isFinite(ms) && ms >= MIN_TS && ms <= MAX_TS;
+}
+
+/**
+ * 全局错误兜底：捕获未处理的运行时异常与 Promise 拒绝
+ * @description 防止单个事件处理器中的异常导致整个交互流程中断；
+ *              统一通过 handleError 记录日志并给出用户提示。
+ * @see handleError
+ */
+window.addEventListener('error', (e) => {
+  handleError(e.error instanceof Error ? e.error : new Error(e.message || '未捕获异常'));
+});
+window.addEventListener('unhandledrejection', (e) => {
+  handleError(e.reason instanceof Error ? e.reason : new Error(String(e.reason)));
+});
+
+/**
+ * 星期几的中英文映射表
+ * @constant {Object.<string, string>}
+ * @property {string} Sun - 周日
+ * @property {string} Mon - 周一
+ * @property {string} Tue - 周二
+ * @property {string} Wed - 周三
+ * @property {string} Thu - 周四
+ * @property {string} Fri - 周五
+ * @property {string} Sat - 周六
+ * @example
+ * console.log(WEEK_CN.Sun); // 输出: "周日"
+ */
 const WEEK_CN = { Sun: '周日', Mon: '周一', Tue: '周二', Wed: '周三', Thu: '周四', Fri: '周五', Sat: '周六' };
 
+/**
+ * 默认时区列表，包含常用的20个时区
+ * @constant {Array.<Object>}
+ * @property {string} label - 时区中文显示名称
+ * @property {string} labelEn - 时区英文显示名称
+ * @property {string} value - IANA时区标识符
+ * @description 默认显示的时区列表，覆盖全球主要城市和时区，
+ *              包含太平洋、美洲、欧洲、亚洲、非洲和大洋洲的主要时区
+ * @example
+ * const tz = DEFAULT_TZ_LIST.find(z => z.value === 'Asia/Shanghai');
+ * console.log(tz.label); // 输出: "北京"
+ * @see ALL_TIMEZONES
+ * @see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+ */
 const DEFAULT_TZ_LIST = [
   { label: '檀香山', labelEn: 'Honolulu', value: 'Pacific/Honolulu' },
   { label: '洛杉矶', labelEn: 'Los Angeles', value: 'America/Los_Angeles' },
@@ -39,7 +260,6 @@ const ALL_TIMEZONES = [
   { label: '纽埃', labelEn: 'Niue', value: 'Pacific/Niue' },
   { label: '帕果帕果', labelEn: 'Pago Pago', value: 'Pacific/Pago_Pago' },
   { label: '中途岛', labelEn: 'Midway', value: 'Pacific/Midway' },
-  { label: '檀香山', labelEn: 'Honolulu', value: 'Pacific/Honolulu' },
   { label: '拉罗汤加', labelEn: 'Rarotonga', value: 'Pacific/Rarotonga' },
   { label: '塔希提', labelEn: 'Tahiti', value: 'Pacific/Tahiti' },
   { label: '约翰斯顿', labelEn: 'Johnston', value: 'Pacific/Johnston' },
@@ -62,7 +282,6 @@ const ALL_TIMEZONES = [
   { label: '克雷斯顿', labelEn: 'Creston', value: 'America/Creston' },
   { label: '纳尔逊堡', labelEn: 'Fort Nelson', value: 'America/Fort_Nelson' },
   { label: '温哥华', labelEn: 'Vancouver', value: 'America/Vancouver' },
-  { label: '洛杉矶', labelEn: 'Los Angeles', value: 'America/Los_Angeles' },
   { label: '埃德蒙顿', labelEn: 'Edmonton', value: 'America/Edmonton' },
   { label: '黄刀镇', labelEn: 'Yellowknife', value: 'America/Yellowknife' },
   { label: '奥希纳加', labelEn: 'Ojinaga', value: 'America/Ojinaga' },
@@ -85,7 +304,6 @@ const ALL_TIMEZONES = [
   { label: '阿蒂科肯', labelEn: 'Coral Harbour', value: 'America/Coral_Harbour' },
   { label: '巴拿马', labelEn: 'Panama', value: 'America/Panama' },
   { label: '巴伊亚班德拉斯', labelEn: 'Bahia Banderas', value: 'America/Bahia_Banderas' },
-  { label: '芝加哥', labelEn: 'Chicago', value: 'America/Chicago' },
   { label: '波哥大', labelEn: 'Bogota', value: 'America/Bogota' },
   { label: '瓜亚基尔', labelEn: 'Guayaquil', value: 'America/Guayaquil' },
   { label: '开曼', labelEn: 'Cayman', value: 'America/Cayman' },
@@ -104,7 +322,6 @@ const ALL_TIMEZONES = [
   { label: '依伦尼贝', labelEn: 'Eirunepe', value: 'America/Eirunepe' },
   { label: '印第安纳州诺克斯', labelEn: 'Indiana/Knox', value: 'America/Indiana/Knox' },
   { label: '印第安纳州特尔城', labelEn: 'Indiana/Tell City', value: 'America/Indiana/Tell_City' },
-  { label: '纽约', labelEn: 'New York', value: 'America/New_York' },
   { label: '阿鲁巴', labelEn: 'Aruba', value: 'America/Aruba' },
   { label: '安圭拉', labelEn: 'Anguilla', value: 'America/Anguilla' },
   { label: '安提瓜', labelEn: 'Antigua', value: 'America/Antigua' },
@@ -127,7 +344,6 @@ const ALL_TIMEZONES = [
   { label: '印第安纳波利斯', labelEn: 'Indianapolis', value: 'America/Indianapolis' },
   { label: '大坎普', labelEn: 'Campo Grande', value: 'America/Campo_Grande' },
   { label: '库亚巴', labelEn: 'Cuiaba', value: 'America/Cuiaba' },
-  { label: '圣保罗', labelEn: 'Sao Paulo', value: 'America/Sao_Paulo' },
   { label: '阿拉瓜伊纳', labelEn: 'Araguaina', value: 'America/Araguaina' },
   { label: '巴伊亚', labelEn: 'Bahia', value: 'America/Bahia' },
   { label: '贝伦', labelEn: 'Belem', value: 'America/Belem' },
@@ -150,11 +366,9 @@ const ALL_TIMEZONES = [
   { label: '洛罗尼亚', labelEn: 'Noronha', value: 'America/Noronha' },
   { label: '南乔治亚', labelEn: 'South Georgia', value: 'Atlantic/South_Georgia' },
   { label: '努克', labelEn: 'Godthab', value: 'America/Godthab' },
-  { label: '斯坦利', labelEn: 'Stanley', value: 'Atlantic/Stanley' },
   { label: '图勒', labelEn: 'Thule', value: 'America/Thule' },
   { label: '佛得角', labelEn: 'Cape Verde', value: 'Atlantic/Cape_Verde' },
   { label: '雷克雅未克', labelEn: 'Reykjavik', value: 'Atlantic/Reykjavik' },
-  { label: '世界协调时', labelEn: 'UTC', value: 'UTC' },
   { label: '阿比让', labelEn: 'Abidjan', value: 'Africa/Abidjan' },
   { label: '阿克拉', labelEn: 'Accra', value: 'Africa/Accra' },
   { label: '巴马科', labelEn: 'Bamako', value: 'Africa/Bamako' },
@@ -164,7 +378,6 @@ const ALL_TIMEZONES = [
   { label: '圣多美', labelEn: 'Sao Tome', value: 'Africa/Sao_Tome' },
   { label: '亚速尔群岛', labelEn: 'Azores', value: 'Atlantic/Azores' },
   { label: '阿尔及尔', labelEn: 'Algiers', value: 'Africa/Algiers' },
-  { label: '都柏林', labelEn: 'Dublin', value: 'Europe/Dublin' },
   { label: '里斯本', labelEn: 'Lisbon', value: 'Europe/Lisbon' },
   { label: '伦敦', labelEn: 'London', value: 'Europe/London' },
   { label: '卡萨布兰卡', labelEn: 'Casablanca', value: 'Africa/Casablanca' },
@@ -178,7 +391,6 @@ const ALL_TIMEZONES = [
   { label: '布鲁塞尔', labelEn: 'Brussels', value: 'Europe/Brussels' },
   { label: '哥本哈根', labelEn: 'Copenhagen', value: 'Europe/Copenhagen' },
   { label: '华沙', labelEn: 'Warsaw', value: 'Europe/Warsaw' },
-  { label: '巴黎', labelEn: 'Paris', value: 'Europe/Paris' },
   { label: '罗马', labelEn: 'Rome', value: 'Europe/Rome' },
   { label: '马德里', labelEn: 'Madrid', value: 'Europe/Madrid' },
   { label: '斯德哥尔摩', labelEn: 'Stockholm', value: 'Europe/Stockholm' },
@@ -188,7 +400,6 @@ const ALL_TIMEZONES = [
   { label: '的地黎波里', labelEn: 'Tripoli', value: 'Africa/Tripoli' },
   { label: '哈拉雷', labelEn: 'Harare', value: 'Africa/Harare' },
   { label: '约翰内斯堡', labelEn: 'Johannesburg', value: 'Africa/Johannesburg' },
-  { label: '开罗', labelEn: 'Cairo', value: 'Africa/Cairo' },
   { label: '雅典', labelEn: 'Athens', value: 'Europe/Athens' },
   { label: '布加勒斯特', labelEn: 'Bucharest', value: 'Europe/Bucharest' },
   { label: '赫尔辛基', labelEn: 'Helsinki', value: 'Europe/Helsinki' },
@@ -199,7 +410,6 @@ const ALL_TIMEZONES = [
   { label: '索非亚', labelEn: 'Sofia', value: 'Europe/Sofia' },
   { label: '耶路撒冷', labelEn: 'Jerusalem', value: 'Asia/Jerusalem' },
   { label: '基辅', labelEn: 'Kiev', value: 'Europe/Kiev' },
-  { label: '莫斯科', labelEn: 'Moscow', value: 'Europe/Moscow' },
   { label: '明斯克', labelEn: 'Minsk', value: 'Europe/Minsk' },
   { label: '伏尔加格勒', labelEn: 'Volgograd', value: 'Europe/Volgograd' },
   { label: '萨马拉', labelEn: 'Samara', value: 'Europe/Samara' },
@@ -211,26 +421,21 @@ const ALL_TIMEZONES = [
   { label: '萨拉托夫', labelEn: 'Saratov', value: 'Europe/Saratov' },
   { label: '德黑兰', labelEn: 'Tehran', value: 'Asia/Tehran' },
   { label: '喀布尔', labelEn: 'Kabul', value: 'Asia/Kabul' },
-  { label: '卡拉奇', labelEn: 'Karachi', value: 'Asia/Karachi' },
   { label: '塔什干', labelEn: 'Tashkent', value: 'Asia/Tashkent' },
   { label: '叶卡捷琳堡', labelEn: 'Yekaterinburg', value: 'Asia/Yekaterinburg' },
-  { label: '新德里', labelEn: 'Delhi', value: 'Asia/Kolkata' },
   { label: '科伦坡', labelEn: 'Colombo', value: 'Asia/Colombo' },
   { label: '加德满都', labelEn: 'Katmandu', value: 'Asia/Katmandu' },
   { label: '加尔各答', labelEn: 'Calcutta', value: 'Asia/Calcutta' },
   { label: '阿拉木图', labelEn: 'Almaty', value: 'Asia/Almaty' },
   { label: '比什凯克', labelEn: 'Bishkek', value: 'Asia/Bishkek' },
-  { label: '达卡', labelEn: 'Dhaka', value: 'Asia/Dhaka' },
   { label: '鄂木斯克', labelEn: 'Omsk', value: 'Asia/Omsk' },
   { label: '乌鲁木齐', labelEn: 'Urumqi', value: 'Asia/Urumqi' },
   { label: '仰光', labelEn: 'Rangoon', value: 'Asia/Rangoon' },
-  { label: '曼谷', labelEn: 'Bangkok', value: 'Asia/Bangkok' },
   { label: '霍巴特', labelEn: 'Hobart', value: 'Australia/Hobart' },
   { label: '胡志明市', labelEn: 'Saigon', value: 'Asia/Saigon' },
   { label: '金边', labelEn: 'Phnom Penh', value: 'Asia/Phnom_Penh' },
   { label: '克拉斯诺亚尔斯克', labelEn: 'Krasnoyarsk', value: 'Asia/Krasnoyarsk' },
   { label: '雅加达', labelEn: 'Jakarta', value: 'Asia/Jakarta' },
-  { label: '北京', labelEn: 'Beijing', value: 'Asia/Shanghai' },
   { label: '香港', labelEn: 'Hong Kong', value: 'Asia/Hong_Kong' },
   { label: '新加坡', labelEn: 'Singapore', value: 'Asia/Singapore' },
   { label: '台北', labelEn: 'Taipei', value: 'Asia/Taipei' },
@@ -240,7 +445,6 @@ const ALL_TIMEZONES = [
   { label: '澳门', labelEn: 'Macau', value: 'Asia/Macau' },
   { label: '乌兰巴托', labelEn: 'Ulaanbaatar', value: 'Asia/Ulaanbaatar' },
   { label: '伊尔库茨克', labelEn: 'Irkutsk', value: 'Asia/Irkutsk' },
-  { label: '东京', labelEn: 'Tokyo', value: 'Asia/Tokyo' },
   { label: '首尔', labelEn: 'Seoul', value: 'Asia/Seoul' },
   { label: '平壤', labelEn: 'Pyongyang', value: 'Asia/Pyongyang' },
   { label: '雅库茨克', labelEn: 'Yakutsk', value: 'Asia/Yakutsk' },
@@ -251,7 +455,6 @@ const ALL_TIMEZONES = [
   { label: '关岛', labelEn: 'Guam', value: 'Pacific/Guam' },
   { label: '海参崴', labelEn: 'Vladivostok', value: 'Asia/Vladivostok' },
   { label: '墨尔本', labelEn: 'Melbourne', value: 'Australia/Melbourne' },
-  { label: '悉尼', labelEn: 'Sydney', value: 'Australia/Sydney' },
   { label: '堪培拉', labelEn: 'Canberra', value: 'Australia/Canberra' },
   { label: '豪勋爵岛', labelEn: 'Lord Howe', value: 'Australia/Lord_Howe' },
   { label: '马加丹', labelEn: 'Magadan', value: 'Asia/Magadan' },
@@ -261,7 +464,6 @@ const ALL_TIMEZONES = [
   { label: '斐济', labelEn: 'Fiji', value: 'Pacific/Fiji' },
   { label: '堪察加', labelEn: 'Kamchatka', value: 'Asia/Kamchatka' },
   { label: '阿纳德尔', labelEn: 'Anadyr', value: 'Asia/Anadyr' },
-  { label: '奥克兰', labelEn: 'Auckland', value: 'Pacific/Auckland' },
   { label: '塔拉瓦', labelEn: 'Tarawa', value: 'Pacific/Tarawa' },
   { label: '瑙鲁', labelEn: 'Nauru', value: 'Pacific/Nauru' },
   { label: '富纳富提', labelEn: 'Funafuti', value: 'Pacific/Funafuti' },
@@ -805,21 +1007,15 @@ function parseOffsetInput(str) {
   const s = String(str || '').trim();
   if (!s) return null;
   // +8 / -5 / 8 / +08:00 / -04:30 / 0530 / +530 / 330
-  let m = s.match(/^([+-])?(\d{1,2})(?::(\d{2}))?$/) || s.match(/^([+-])?(\d{2})?(\d{2})$/.exec(s) && s.match(/^([+-])?(\d{1,2})(\d{2})$/));
-  let sign, hh, mm;
-  if (m) {
-    sign = m[1] === '-' ? -1 : 1;
-    hh = parseInt(m[2], 10);
-    mm = m[3] ? parseInt(m[3], 10) : 0;
-  } else {
-    const m2 = s.match(/^([+-])?(\d{1,2})(\d{2})$/);
-    if (m2) { sign = m2[1] === '-' ? -1 : 1; hh = parseInt(m2[2], 10); mm = parseInt(m2[3], 10); }
-  }
-  if (typeof hh === 'undefined') return null;
-  if (mm === undefined) mm = 0;
+  let m = s.match(/^([+-])?(\d{1,2})(?::(\d{2}))?$/) ||
+          s.match(/^([+-])?(\d{2})?(\d{2})$/) ||
+          s.match(/^([+-])?(\d{1,2})(\d{2})$/);
+  if (!m) return null;
+  const sign = m[1] === '-' ? -1 : 1;
+  const hh = parseInt(m[2], 10);
+  const mm = m[3] ? parseInt(m[3], 10) : 0;
   if (mm >= 60) return null;
-  const total = hh * 60 + mm;
-  const adj = total * sign;
+  const adj = (hh * 60 + mm) * sign;
   if (adj > 14 * 60 || adj < -12 * 60) return null;
   return adj;
 }
@@ -837,36 +1033,50 @@ function addCustomTimezone() {
   const offsetStr = customTzOffsetEl ? customTzOffsetEl.value.trim() : '';
   const abbrStr = customTzAbbrEl ? customTzAbbrEl.value.trim() : '';
   const iana = customTzIanaEl ? customTzIanaEl.value.trim() : '';
-  if (!cn && !en) { toast(lang === 'zh' ? '请输入中文名或英文名' : 'Enter a Chinese or English name'); return; }
+  
+  // 使用公共函数进行验证
+  if (!cn && !en) {
+    toast(lang === 'zh' ? '请输入中文名或英文名' : 'Enter a Chinese or English name');
+    return;
+  }
 
   let value;
   let fallbackLabel;
   if (iana) {
-    if (!isValidIana(iana)) { toast(lang === 'zh' ? 'IANA时区无效，请检查拼写（如 Asia/Shanghai）' : 'Invalid IANA timezone, check spelling (e.g. Asia/Shanghai)'); return; }
+    if (!isValidIana(iana)) {
+      handleError(new Error('IANA时区无效'), lang === 'zh' ? 'IANA时区无效，请检查拼写（如 Asia/Shanghai）' : 'Invalid IANA timezone, check spelling (e.g. Asia/Shanghai)');
+      return;
+    }
     value = iana;
     fallbackLabel = iana;
   } else {
     const mins = parseOffsetInput(offsetStr);
-    if (mins === null) { toast(lang === 'zh' ? '未填写IANA时，请输入 -12 到 +14 之间的有效偏移' : 'Enter a valid offset between -12 and +14 when no IANA timezone is set'); return; }
+    if (mins === null) {
+      handleError(new Error('无效偏移'), lang === 'zh' ? '未填写IANA时，请输入 -12 到 +14 之间的有效偏移' : 'Enter a valid offset between -12 and +14 when no IANA timezone is set');
+      return;
+    }
     const sign = mins >= 0 ? '+' : '-';
     const a = Math.abs(mins);
     value = `FIXED:${sign}${String(Math.floor(a / 60)).padStart(2, '0')}${String(a % 60).padStart(2, '0')}`;
     fallbackLabel = formatOffset(mins);
   }
+  
   if (ALL_TIMEZONES.some(z => z.value === value) || CUSTOM_TIMEZONES.some(z => z.value === value)) {
-    toast(lang === 'zh' ? '该时区已存在' : 'This timezone already exists');
+    handleError(new Error('时区已存在'), lang === 'zh' ? '该时区已存在' : 'This timezone already exists');
     return;
   }
+  
   const abbr = abbrStr ? abbrStr.split(/[\/\s,，]+/).map(x => x.trim()).filter(Boolean) : [];
   const zone = { label: cn || `自定义 ${fallbackLabel}`, labelEn: en || `Custom ${fallbackLabel}`, value, custom: true, abbr, iana };
+  
+  // 使用公共函数清空输入框
+  [customTzCnEl, customTzEnEl, customTzOffsetEl, customTzAbbrEl, customTzIanaEl].forEach(el => {
+    if (el) el.value = '';
+  });
+  
   CUSTOM_TIMEZONES.push(zone);
   persistCustomTimezones();
   tzConfigSelected.add(value);
-  if (customTzCnEl) customTzCnEl.value = '';
-  if (customTzEnEl) customTzEnEl.value = '';
-  if (customTzOffsetEl) customTzOffsetEl.value = '';
-  if (customTzAbbrEl) customTzAbbrEl.value = '';
-  if (customTzIanaEl) customTzIanaEl.value = '';
   renderCustomTzList();
   renderTzConfigList();
   commitTzConfig();
@@ -895,11 +1105,12 @@ function offsetInputFromValue(value) {
 function renderCustomTzList() {
   if (!customTzListEl) return;
   if (CUSTOM_TIMEZONES.length === 0) {
-    customTzListEl.innerHTML = `<div class="empty-tip" data-i18n="noCustomTz">暂无自定义时区</div>`;
+    safeSetHtml(customTzListEl, `<div class="empty-tip" data-i18n="noCustomTz">暂无自定义时区</div>`);
     applyModalI18n();
     return;
   }
-  customTzListEl.innerHTML = CUSTOM_TIMEZONES.map(z => {
+  
+  const html = CUSTOM_TIMEZONES.map(z => {
     if (tzEditingValue === z.value) {
       const aliasVal = (Array.isArray(z.abbr) ? z.abbr : [z.abbr]).filter(Boolean).join('/');
       return `<div class="custom-tz-item editing" data-value="${z.value}">
@@ -933,26 +1144,30 @@ function renderCustomTzList() {
       </div>
     </div>`;
   }).join('');
+  
+  safeSetHtml(customTzListEl, html);
+  
+  // 使用公共函数绑定事件
   customTzListEl.querySelectorAll('.custom-tz-item').forEach(item => {
     if (item.classList.contains('editing')) {
       const val = item.dataset.value;
-      item.querySelector('.custom-tz-save').addEventListener('click', (e) => {
+      addEventListener(item.querySelector('.custom-tz-save'), 'click', (e) => {
         e.stopPropagation();
         saveEditCustomTimezone(val, item);
       });
-      item.querySelector('.custom-tz-cancel').addEventListener('click', (e) => {
+      addEventListener(item.querySelector('.custom-tz-cancel'), 'click', (e) => {
         e.stopPropagation();
         tzEditingValue = null;
         renderCustomTzList();
       });
       return;
     }
-    item.querySelector('.custom-tz-edit').addEventListener('click', (e) => {
+    addEventListener(item.querySelector('.custom-tz-edit'), 'click', (e) => {
       e.stopPropagation();
       tzEditingValue = item.dataset.value;
       renderCustomTzList();
     });
-    item.querySelector('.custom-tz-del').addEventListener('click', (e) => {
+    addEventListener(item.querySelector('.custom-tz-del'), 'click', (e) => {
       e.stopPropagation();
       removeCustomTimezone(item.dataset.value);
     });
@@ -1021,68 +1236,122 @@ function applyModalI18n() {
 function initTzConfig() {
   const configTabsEl = $('#config-tabs');
   const configPanes = { tz: $('#pane-tz'), fmt: $('#pane-fmt'), parse: $('#pane-parse'), sys: $('#pane-sys') };
-  if (configTabsEl) {
-    configTabsEl.querySelectorAll('.config-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        configTabsEl.querySelectorAll('.config-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const name = btn.dataset.tab;
-        Object.entries(configPanes).forEach(([k, pane]) => {
-          if (pane) pane.classList.toggle('hidden', k !== name);
-        });
-      });
-    });
-  }
-  if (btnTzConfig) {
-    btnTzConfig.addEventListener('click', () => {
-      tzConfigModal.classList.add('show');
-      renderTzConfigList();
-      renderCustomTzList();
-      renderDateParseList();
-      renderCustomParseRules();
-      updateParseStyleBtns();
-      renderSysConfig();
-    });
-  }
-  if (modalCloseEl) {
-    modalCloseEl.addEventListener('click', () => tzConfigModal.classList.remove('show'));
-  }
-  tzConfigModal.addEventListener('click', (e) => {
-    if (e.target === tzConfigModal) tzConfigModal.classList.remove('show');
+  
+  // 使用公共函数批量绑定事件
+  bindEvents({
+    [configTabsEl]: {
+      '.config-tab': {
+        'click': (e) => {
+          const btn = e.target.closest('.config-tab');
+          if (!btn) return;
+          
+          configTabsEl.querySelectorAll('.config-tab').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const name = btn.dataset.tab;
+          Object.entries(configPanes).forEach(([k, pane]) => {
+            if (pane) pane.classList.toggle('hidden', k !== name);
+          });
+        },
+      },
+    },
+
+    [modalCloseEl]: {
+      'click': () => tzConfigModal.classList.remove('show')
+    },
+    
+    [tzConfigModal]: {
+      'click': (e) => {
+        if (e.target === tzConfigModal) tzConfigModal.classList.remove('show');
+      }
+    },
+    
+    ['#donate-link']: {
+      'click': () => {
+        const donateModal = $('#donate-modal');
+        if (donateModal) donateModal.classList.add('show');
+      }
+    },
+    
+    ['#donate-close']: {
+      'click': () => {
+        const donateModal = $('#donate-modal');
+        if (donateModal) donateModal.classList.remove('show');
+      }
+    },
+    
+    [btnCustomTzAdd]: {
+      'click': () => addCustomTimezone()
+    },
+    
+    [btnResetTzConfig]: {
+      'click': () => resetTzConfig()
+    }
   });
-  const donateModal = $('#donate-modal');
-  const donateLink = $('#donate-link');
-  const donateClose = $('#donate-close');
-  if (donateLink) {
-    donateLink.addEventListener('click', () => {
-      if (donateModal) donateModal.classList.add('show');
-    });
-  }
-  if (donateClose) {
-    donateClose.addEventListener('click', () => {
-      if (donateModal) donateModal.classList.remove('show');
-    });
-  }
-  if (donateModal) {
-    donateModal.addEventListener('click', (e) => {
-      if (e.target === donateModal) donateModal.classList.remove('show');
-    });
-  }
-  if (btnCustomTzAdd) {
-    btnCustomTzAdd.addEventListener('click', () => addCustomTimezone());
-    [customTzCnEl, customTzEnEl, customTzOffsetEl].forEach(el => {
-      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCustomTimezone(); });
-    });
-  }
-  if (btnResetTzConfig) {
-    btnResetTzConfig.addEventListener('click', () => resetTzConfig());
-  }
+
+// 暴露公共函数到全局
+window.addEventListener = addEventListener;
+window.bindEvents = bindEvents;
+window.toggleClass = toggleClass;
+window.handleError = handleError;
+window.safeSetHtml = safeSetHtml;
+window.safeSetText = safeSetText;
+window.t = t;
+window.toast = toast;
+window.applyLang = applyLang;
+window.renderConvert = renderConvert;
+window.renderReverse = renderReverse;
+window.hideSuggestions = hideSuggestions;
+window.showSuggestions = showSuggestions;
+window.syncClearBtns = syncClearBtns;
+window.updateDateToTsTitle = updateDateToTsTitle;
+window.updateTsToDateTitle = updateTsToDateTitle;
+window.updateNow = updateNow;
+window.renderCalendar = renderCalendar;
+window.renderTimeWheels = renderTimeWheels;
+window.updateFracInput = updateFracInput;
+window.toggleNowPanel = toggleNowPanel;
+window.reformatTimeInput = reformatTimeInput;
+window.switchTab = switchTab;
+window.toggleLang = toggleLang;
+window.openCalendar = openCalendar;
+window.closeCalendar = closeCalendar;
+window.setDateToNow = setDateToNow;
+window.calNavigate = calNavigate;
+window.setCalendarMonth = setCalendarMonth;
+window.setDateFields = setDateFields;
+window.applyParsedToFields = applyParsedToFields;
+window.parseDateEx = parseDateEx;
+window.peWallStr = peWallStr;
+
+  // 绑定时区配置按钮事件
+  addEventListener(btnTzConfig, 'click', () => {
+    tzConfigModal.classList.add('show');
+    renderTzConfigList();
+    renderCustomTzList();
+    renderDateParseList();
+    renderCustomParseRules();
+    updateParseStyleBtns();
+    renderSysConfig();
+  });
+  
+  // 为输入框添加回车键事件
+  [customTzCnEl, customTzEnEl, customTzOffsetEl].forEach(el => {
+    if (el) {
+      addEventListener(el, 'keydown', (e) => {
+        if (e.key === 'Enter') addCustomTimezone();
+      });
+    }
+  });
+  
+  // 使用防抖函数优化搜索功能
   if (tzSearchEl) {
-    tzSearchEl.addEventListener('input', debounce(() => renderTzConfigList(), 150));
+    addEventListener(tzSearchEl, 'input', debounce(() => renderTzConfigList(), 150));
   }
+  
+  // 批量绑定过滤器按钮事件
   if (tzFilterEl) {
     tzFilterEl.querySelectorAll('.tz-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      addEventListener(btn, 'click', () => {
         tzFilterEl.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         renderTzConfigList();
@@ -1134,14 +1403,21 @@ function resetSysConfig() {
 }
 function initSysConfig() {
   const resetBtn = $('#reset-sys-config');
-  if (resetBtn) resetBtn.addEventListener('click', resetSysConfig);
-  ['sys-default-tab', 'sys-precision', 'sys-theme', 'sys-usns'].forEach(id => {
-    const g = document.getElementById(id);
-    if (!g) return;
-    g.addEventListener('click', (e) => {
+  if (resetBtn) {
+    addEventListener(resetBtn, 'click', resetSysConfig);
+  }
+  
+  // 使用公共函数批量绑定系统配置事件
+  const sysConfigIds = ['sys-default-tab', 'sys-precision', 'sys-theme', 'sys-usns'];
+  sysConfigIds.forEach(id => {
+    const group = document.getElementById(id);
+    if (!group) return;
+    
+    addEventListener(group, 'click', (e) => {
       const btn = e.target.closest('.tz-filter-btn');
       if (!btn || btn.classList.contains('active')) return;
-      g.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.remove('active'));
+      
+      group.querySelectorAll('.tz-filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       applySysField(id, btn.dataset.value);
     });

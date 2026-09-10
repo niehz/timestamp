@@ -5,11 +5,21 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+// 导入公共函数库
+try {
+  if (typeof window.addEventListener === 'function') {
+    // 使用公共函数库中的工具函数
+    const { addEventListener, safeSetHtml, safeSetText, toggleClass, handleError, withErrorHandling, debounce } = window;
+  }
+} catch (e) {
+  console.error('加载公共函数库失败:', e);
+}
+
 function setResult(valEl, text, state) {
   valEl.dataset.value = state === 'empty' || state === 'err' ? '' : (valEl.dataset.value || '');
   valEl.setAttribute('aria-result', state || '');
-  valEl.textContent = text;
-  valEl.classList.toggle('placeholder', state === 'empty' || state === 'err');
+  safeSetText(valEl, text);
+  toggleClass(valEl, 'placeholder', state === 'empty' || state === 'err');
   valEl.classList.remove('copied');
 }
 
@@ -27,23 +37,28 @@ function renderConvert() {
   const isNs = currentTab === 'ns';
   const sel = readDateSelection();
   d2tVal.dataset.value = '';
+  
   if (sel.empty) {
     setResult(d2tVal, '', 'empty');
     setHint(hintD2t, '', '');
     return;
   }
+  
   if (sel.err) {
     setResult(d2tVal, t('invalidDate'), 'err');
     setHint(hintD2t, t('invalidDate'), 'err');
     return;
   }
+  
   let ms;
   if (sel.kind === 'abs') {
     ms = sel.ms;
   } else {
     ms = dateToMs(sel, inputTzEl.value);
   }
-  if (!validate(ms)) {
+  
+  // 使用公共函数库中的验证函数
+  if (!validateTimestamp(ms)) {
     setResult(d2tVal, t('outOfRange'), 'err');
     setHint(hintD2t, '', '');
     return;
@@ -260,16 +275,18 @@ function bindFmtList(el) {
   el.querySelectorAll('.timezone-item').forEach(item => {
     const handle = item.querySelector('.fmt-drag');
     if (handle) {
-      handle.addEventListener('mousedown', (e) => {
+      addEventListener(handle, 'mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
         startFmtDrag(e, item, el);
       });
     }
-    item.addEventListener('mousedown', (e) => {
+    
+    addEventListener(item, 'mousedown', (e) => {
       if (e.target.closest('.fmt-drag')) return;
       if (e.button !== 0) return;
       if (fmtDrag) return;
+      
       const sx = e.clientX, sy = e.clientY;
       const moveCheck = (ev) => {
         if (Math.abs(ev.clientX - sx) > 3 || Math.abs(ev.clientY - sy) > 3) {
@@ -278,25 +295,34 @@ function bindFmtList(el) {
           startFmtDrag(ev, item, el);
         }
       };
+      
       const clearCheck = () => {
         window.removeEventListener('mousemove', moveCheck);
         window.removeEventListener('mouseup', clearCheck);
       };
+      
       window.addEventListener('mousemove', moveCheck);
       window.addEventListener('mouseup', clearCheck);
     });
-    item.addEventListener('click', (e) => {
-      if (fmtDragJustMoved) { fmtDragJustMoved = false; return; }
+    
+    addEventListener(item, 'click', (e) => {
+      if (fmtDragJustMoved) { 
+        fmtDragJustMoved = false; 
+        return; 
+      }
       if (e.target.closest('.fmt-drag')) return;
+      
       const fmt = item.dataset.fmt;
-      if (DATE_FMT_ENABLED.has(fmt)) DATE_FMT_ENABLED.delete(fmt);
-      else {
+      if (DATE_FMT_ENABLED.has(fmt)) {
+        DATE_FMT_ENABLED.delete(fmt);
+      } else {
         if (DATE_FMT_ENABLED.size >= DATE_FMT_MAX_ENABLED) {
           toast(lang === 'zh' ? `最多同时启用 ${DATE_FMT_MAX_ENABLED} 个格式` : `At most ${DATE_FMT_MAX_ENABLED} formats enabled`);
           return;
         }
         DATE_FMT_ENABLED.add(fmt);
       }
+      
       saveDateFmtConfig();
       renderDateFormatList();
       renderReverse();
@@ -691,16 +717,32 @@ function resetDateFormats() {
   toast(lang === 'zh' ? '格式已重置' : 'Formats reset');
 }
 function initDateFormatConfig() {
+  // 使用公共函数库中的事件绑定函数
   if (btnCustomFmtAdd) {
-    btnCustomFmtAdd.addEventListener('click', addCustomFormat);
+    addEventListener(btnCustomFmtAdd, 'click', addCustomFormat);
     const labelEl = $('#custom-fmt-label');
     const inputEl = $('#custom-fmt-input');
-    if (inputEl) inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCustomFormat(); });
-    if (labelEl) labelEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCustomFormat(); });
+    if (inputEl) {
+      addEventListener(inputEl, 'keydown', (e) => { 
+        if (e.key === 'Enter') addCustomFormat(); 
+      });
+    }
+    if (labelEl) {
+      addEventListener(labelEl, 'keydown', (e) => { 
+        if (e.key === 'Enter') addCustomFormat(); 
+      });
+    }
   }
+  
   const searchEl = $('#date-fmt-search');
-  if (searchEl) searchEl.addEventListener('input', debounce(() => renderDateFormatList(), 150));
-  if (btnResetFmtConfig) btnResetFmtConfig.addEventListener('click', resetDateFormats);
+  if (searchEl) {
+    addEventListener(searchEl, 'input', debounce(() => renderDateFormatList(), 150));
+  }
+  
+  if (btnResetFmtConfig) {
+    addEventListener(btnResetFmtConfig, 'click', resetDateFormats);
+  }
+  
   renderCustomFmtList();
 }
 

@@ -232,9 +232,9 @@ function extractTCalls(sources) {
 }
 
 function checkI18n() {
-  // Find i18n source: prefer js/i18n.js, fall back to root index.js
+  // Find i18n source: prefer js/core.js (holds the real I18N), then js/i18n.js, then root index.js
   let i18nSource = '';
-  for (const p of ['js/i18n.js', 'index.js']) {
+  for (const p of ['js/core.js', 'js/i18n.js', 'index.js']) {
     const full = resolve(ROOT, p);
     if (existsSync(full)) { i18nSource = readFileSync(full, 'utf8'); break; }
   }

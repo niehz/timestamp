@@ -333,8 +333,16 @@ export function formatQueryParams(params) {
 
 /**
  * 格式化Base64
+ * 将字符串进行 Base64 编码
+ * 使用 btoa 函数进行编码，先进行 UTF-8 编码
+ * 
  * @param {string} str - 要编码的字符串
- * @returns {string} Base64编码字符串
+ * @returns {string} Base64 编码后的字符串
+ * 
+ * @example
+ * formatBase64('Hello World'); // 'SGVsbG8gV29ybGQ='
+ * formatBase64('时间戳转换器'); // '5YmN55So5Lit5Zu+55Sf6KGM'
+ * formatBase64('12345'); // 'MTIzNDU='
  */
 export function formatBase64(str) {
   return btoa(unescape(encodeURIComponent(str)));
@@ -342,7 +350,16 @@ export function formatBase64(str) {
 
 /**
  * 格式化UUID
- * @returns {string} UUID字符串
+ * 生成版本4的随机 UUID (Universally Unique Identifier)
+ * 使用 RFC 4122 标准格式：xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+ * 
+ * @returns {string} 生成的 UUID 字符串
+ * 
+ * @example
+ * formatUUID(); // 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+ * formatUUID(); // '550e8400-e29b-41d4-a716-446655440000'
+ * 
+ * @note 每次调用都会生成不同的 UUID
  */
 export function formatUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {

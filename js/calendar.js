@@ -5,19 +5,30 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+// 导入公共函数库
+try {
+  if (typeof window.addEventListener === 'function') {
+    // 使用公共函数库中的工具函数
+    const { addEventListener, safeSetText, safeSetHtml, toggleClass, handleError, withErrorHandling, debounce } = window;
+  }
+} catch (e) {
+  console.error('加载公共函数库失败:', e);
+}
+
 function renderCalendar() {
   const dayMode = calView === 'day';
   const monthMode = calView === 'month';
   const yearMode = calView === 'year';
 
+  // 使用公共函数库中的DOM操作函数
   calHeadEl.style.display = yearMode ? 'none' : 'flex';
   if (calRightEl) calRightEl.style.display = dayMode ? 'flex' : 'none';
 
-  calTitle.textContent = dayMode
+  safeSetText(calTitle, dayMode
     ? `${calYear}${lang === 'zh' ? '年' : '/'}${pad(calMonth + 1)}${lang === 'zh' ? '月' : ''}`
     : monthMode
       ? `${calYear}${lang === 'zh' ? '年' : ''}`
-      : `${calDecadeStart} - ${calDecadeStart + 9}`;
+      : `${calDecadeStart} - ${calDecadeStart + 9}`);
 
   calBodyDay.style.display = dayMode ? 'block' : 'none';
   calBodyMonth.style.display = monthMode ? 'block' : 'none';
@@ -45,16 +56,27 @@ function renderDayGrid() {
   const dim = new Date(calYear, calMonth + 1, 0).getDate();
   const startDow = first.getDay();
   const today = new Date();
-  calGrid.innerHTML = '';
-  for (let i = 0; i < startDow; i++) calGrid.appendChild(el('button', 'cal-day empty', ''));
+  
+  // 使用公共函数库中的DOM操作函数
+  safeSetHtml(calGrid, '');
+  
+  for (let i = 0; i < startDow; i++) {
+    const emptyBtn = el('button', 'cal-day empty', '');
+    calGrid.appendChild(emptyBtn);
+  }
+  
   for (let d = 1; d <= dim; d++) {
     const btn = el('button', 'cal-day', String(d));
     const dow = (startDow + d - 1) % 7;
-    if (dow === 0 || dow === 6) btn.classList.add('weekend');
+    
+    // 使用公共函数库中的DOM操作函数
+    if (dow === 0 || dow === 6) toggleClass(btn, 'weekend', true);
     const isSel = calSelected && calSelected.y === calYear && calSelected.mo === calMonth && calSelected.d === d;
-    if (isSel) btn.classList.add('selected');
-    if (d === today.getDate() && calYear === today.getFullYear() && calMonth === today.getMonth()) btn.classList.add('today');
-    btn.addEventListener('click', (e) => { e.stopPropagation(); selectDay(d); });
+    if (isSel) toggleClass(btn, 'selected', true);
+    if (d === today.getDate() && calYear === today.getFullYear() && calMonth === today.getMonth()) toggleClass(btn, 'today', true);
+    
+    // 使用公共函数库中的事件绑定函数
+    addEventListener(btn, 'click', (e) => { e.stopPropagation(); selectDay(d); });
     calGrid.appendChild(btn);
   }
 }
@@ -63,15 +85,22 @@ function renderMonths() {
   const MONTHS = lang === 'zh'
     ? ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
     : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  calMonthsEl.innerHTML = '';
+  
+  // 使用公共函数库中的DOM操作函数
+  safeSetHtml(calMonthsEl, '');
+  
   for (let i = 0; i < 12; i++) {
     const btn = el('button', 'cal-month', MONTHS[i]);
     const isSel = calSelected && calSelected.y === calYear && calSelected.mo === i;
-    if (isSel) btn.classList.add('selected');
     const cur = new Date();
-    if (calYear === cur.getFullYear() && i === cur.getMonth()) btn.classList.add('today');
-    if (i === calMonth) btn.classList.add('edited');
-    btn.addEventListener('click', (e) => {
+    
+    // 使用公共函数库中的DOM操作函数
+    if (isSel) toggleClass(btn, 'selected', true);
+    if (calYear === cur.getFullYear() && i === cur.getMonth()) toggleClass(btn, 'today', true);
+    if (i === calMonth) toggleClass(btn, 'edited', true);
+    
+    // 使用公共函数库中的事件绑定函数
+    addEventListener(btn, 'click', (e) => {
       e.stopPropagation();
       calMonth = i;
       calView = 'day';
@@ -82,7 +111,8 @@ function renderMonths() {
 }
 
 function renderYears() {
-  calYearHeadEl.innerHTML = `
+  // 使用公共函数库中的DOM操作函数
+  safeSetHtml(calYearHeadEl, `
     <div class="cal-nav-group">
       <button type="button" class="cal-nav tiny" data-step="-1000" title="-1000">&lt;&lt;&lt;</button>
       <button type="button" class="cal-nav tiny" data-step="-100" title="-100">&lt;&lt;</button>
@@ -93,15 +123,21 @@ function renderYears() {
       <button type="button" class="cal-nav tiny" data-step="10" title="+10">&gt;</button>
       <button type="button" class="cal-nav tiny" data-step="100" title="+100">&gt;&gt;</button>
       <button type="button" class="cal-nav tiny" data-step="1000" title="+1000">&gt;&gt;&gt;</button>
-    </div>`;
-
-  calYearsEl.innerHTML = '';
+    </div>`);
+  
+  // 使用公共函数库中的DOM操作函数
+  safeSetHtml(calYearsEl, '');
+  
   for (let y = calDecadeStart; y <= calDecadeStart + 9; y++) {
     const btn = el('button', 'cal-year', String(y));
-    if (y === calYear) btn.classList.add('selected');
     const cur = new Date().getFullYear();
-    if (y === cur) btn.classList.add('today');
-    btn.addEventListener('click', (e) => {
+    
+    // 使用公共函数库中的DOM操作函数
+    if (y === calYear) toggleClass(btn, 'selected', true);
+    if (y === cur) toggleClass(btn, 'today', true);
+    
+    // 使用公共函数库中的事件绑定函数
+    addEventListener(btn, 'click', (e) => {
       e.stopPropagation();
       calYear = y;
       calView = 'month';
@@ -232,7 +268,7 @@ function openCalendar() {
     calYear = now.getFullYear(); calMonth = now.getMonth();
     calSelected = { y: now.getFullYear(), mo: now.getMonth(), d: now.getDate() };
     calDecadeStart = Math.floor(now.getFullYear() / 10) * 10;
-    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: Math.floor(Math.random() * 1000), ns: Math.floor(Math.random() * 1000) };
+    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: 0, ns: 0 };
   } else {
     const parsed = parseDate(dateInput.value);
     if (parsed && parsed.kind === 'date') {
@@ -241,7 +277,7 @@ function openCalendar() {
     } else {
       calSelected = null;
     }
-    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: Math.floor(Math.random() * 1000), ns: Math.floor(Math.random() * 1000) };
+    calTime = { hh: now.getHours(), mm: now.getMinutes(), ss: now.getSeconds(), ms: now.getMilliseconds(), us: 0, ns: 0 };
     const tm = timeInputEl.value.trim().match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?$/);
     if (tm) {
       calTime.hh = Math.min(23, +tm[1]); calTime.mm = Math.min(59, +tm[2]);
@@ -373,43 +409,63 @@ function selectWheelValue(el, i, onChange, step) {
 }
 
 function buildWheel(el, count, cur, onChange) {
-  el.innerHTML = '';
+  // 使用公共函数库中的DOM操作函数
+  safeSetHtml(el, '');
+  
   const viewH = el.clientHeight || WHEEL_VIEW;
   const pad = (viewH - WHEEL_H) / 2;
   el.style.paddingTop = pad + 'px';
   el.style.paddingBottom = pad + 'px';
   const digits = count > 99 ? 3 : 2;
+  
   for (let i = 0; i < count; i++) {
     const it = document.createElement('div');
     it.className = 'wheel-item';
-    it.textContent = String(i).padStart(digits, '0');
-    it.addEventListener('click', (e) => { e.stopPropagation(); selectWheelValue(el, i, onChange); });
+    safeSetText(it, String(i).padStart(digits, '0'));
+    
+    // 使用公共函数库中的事件绑定函数
+    addEventListener(it, 'click', (e) => { 
+      e.stopPropagation(); 
+      selectWheelValue(el, i, onChange); 
+    });
     el.appendChild(it);
   }
+  
   el._sel = clampWheel(cur, count - 1);
   el._step = WHEEL_H;
   highlightWheel(el, el._sel);
   el._suspend = true;
+  
   const apply = () => { el.scrollTop = el._sel * WHEEL_H; };
   if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(apply);
   else apply();
   if (typeof setTimeout !== 'undefined') setTimeout(() => { el._suspend = false; }, 150);
-  el.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const dir = e.deltaY > 0 ? 1 : -1;
-    const ni = clampWheel(el._sel + dir, count - 1);
-    if (ni === el._sel) return;
-    el._sel = ni;
-    highlightWheel(el, ni);
-    el._suspend = true;
-    el.scrollTop = ni * WHEEL_H;
-    if (typeof setTimeout !== 'undefined') setTimeout(() => { el._suspend = false; }, 220);
-    if (onChange) onChange(ni);
-  }, { passive: false });
-  el.addEventListener('scroll', () => {
-    if (el._suspend) return;
-    const idx = wheelIndexFromScrollTop(el);
-    if (idx !== el._sel) { el._sel = idx; highlightWheel(el, idx); if (onChange) onChange(idx); }
+  
+  // 使用公共函数库中的事件绑定函数
+  bindEvents({
+    [el]: {
+      'wheel': (e) => {
+        e.preventDefault();
+        const dir = e.deltaY > 0 ? 1 : -1;
+        const ni = clampWheel(el._sel + dir, count - 1);
+        if (ni === el._sel) return;
+        el._sel = ni;
+        highlightWheel(el, ni);
+        el._suspend = true;
+        el.scrollTop = ni * WHEEL_H;
+        if (typeof setTimeout !== 'undefined') setTimeout(() => { el._suspend = false; }, 220);
+        if (onChange) onChange(ni);
+      },
+      'scroll': () => {
+        if (el._suspend) return;
+        const idx = wheelIndexFromScrollTop(el);
+        if (idx !== el._sel) { 
+          el._sel = idx; 
+          highlightWheel(el, idx); 
+          if (onChange) onChange(idx); 
+        }
+      }
+    }
   });
 }
 
@@ -432,7 +488,7 @@ function calNavigate(dir) {
 }
 
 function validate(ms) {
-  return Number.isFinite(ms) && ms >= MIN_TS && ms <= MAX_TS;
+  return validateTimestamp(ms);
 }
 
 function t(keys) {
@@ -506,14 +562,14 @@ function updateNow() {
   const simulatedUs = lastSec.toString() + usTail;
   const simulatedNs = lastSec.toString() + nsTail;
   
-  // 更新显示
+  // 更新显示 - 使用公共函数库中的DOM操作函数
   const displayDate = new Date(lastMs);
-  nowDateEl.textContent = formatLocal(displayDate);
+  safeSetText(nowDateEl, formatLocal(displayDate));
   nowDateEl.title = formatLocal(displayDate);
-  nowSecEl.textContent = lastSec;
-  nowMsEl.textContent = lastMs;
-  nowUsEl.textContent = simulatedUs.toString();
-  nowNsEl.textContent = simulatedNs.toString();
+  safeSetText(nowSecEl, lastSec);
+  safeSetText(nowMsEl, lastMs);
+  safeSetText(nowUsEl, simulatedUs.toString());
+  safeSetText(nowNsEl, simulatedNs.toString());
   nowSecEl.title = String(lastSec);
   nowMsEl.title = String(lastMs);
   nowUsEl.title = simulatedUs.toString();

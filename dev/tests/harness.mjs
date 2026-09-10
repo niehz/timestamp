@@ -1,4 +1,4 @@
-import { createSandbox, loadModules, defineCallBridge } from '../scripts/load-test.mjs';
+import { createSandbox, loadModules } from '../scripts/load-test.mjs';
 import vm from 'node:vm';
 
 function normalize(v) {
@@ -9,12 +9,10 @@ function normalize(v) {
 export function createFresh() {
   const sb = createSandbox();
   loadModules(sb);
-  // __call resolves function declarations via globalThis, but `const`-declared
-  // arrows (e.g. pad) are global *lexical* bindings, so fall back to eval.
-  vm.runInNewContext(
-    'globalThis.__call = (name, args) => { const fn = globalThis[name] !== undefined ? globalThis[name] : eval(name); return fn.apply(null, args); };',
-    sb
-  );
+  // Resolve the callee via eval: it sees both global object properties
+  // (function declarations) and global lexical bindings (const arrows like pad).
+  // Cross-script `globalThis[name]` lookups alone miss the lexical kind.
+  vm.runInNewContext('globalThis.__call = (name, args) => eval(name)(...args);', sb);
   const call = (name, ...args) => normalize(vm.runInNewContext(
     '__call(' + JSON.stringify(name) + ', ' + JSON.stringify(args) + ')', sb
   ));
