@@ -3,19 +3,48 @@
 // 集成IANA时区支持，包括历史偏移数据
 // ========================================================
 
-// 导入兼容层
-import TimezoneCompatibility from './timezone/compatibility-layer.js';
+// 全局兼容层引用
+let TimezoneCompatibility;
 
 // 全局变量
 let ianaLoaded = false;
 
+// 等待兼容层初始化
+function waitForCompatibilityLayer() {
+  if (typeof window.TimezoneCompatibility !== 'undefined') {
+    TimezoneCompatibility = window.TimezoneCompatibility;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const checkInterval = setInterval(() => {
+      if (typeof window.TimezoneCompatibility !== 'undefined') {
+        clearInterval(checkInterval);
+        TimezoneCompatibility = window.TimezoneCompatibility;
+        resolve();
+      }
+    }, 50);
+  });
+}
+
 // 初始化IANA时区支持
-async function initIanaTimezone() {
+function initIanaTimezone() {
   if (ianaLoaded) return true;
   
   try {
-    await TimezoneCompatibility.getIanaTimezone().loadLuxon();
-    ianaLoaded = true;
+    // 等待兼容层初始化
+    waitForCompatibilityLayer();
+    
+    // 等待IANA时区库加载
+    if (typeof window.IanaTimezone !== 'undefined') {
+      window.IanaTimezone.loadLuxon().then(() => {
+        ianaLoaded = true;
+      }).catch(error => {
+        console.warn('Failed to load Luxon library:', error);
+      });
+    } else {
+      console.warn('IANA timezone library not available');
+    }
+    
     return true;
   } catch (error) {
     console.error('Failed to initialize IANA timezone support:', error);
@@ -34,7 +63,7 @@ function formatUTC(date) {
 }
 
 // 增强的时区格式化函数
-async function formatTz(date, tz) {
+function formatTz(date, tz) {
   // 首先尝试使用IANA时区支持
   if (ianaLoaded) {
     try {
@@ -64,7 +93,7 @@ function legacyFormatTz(date, tz) {
 }
 
 // 增强的时区部分解析函数
-async function tzParts(date, tz) {
+function tzParts(date, tz) {
   // 首先尝试使用IANA时区支持
   if (ianaLoaded) {
     try {
@@ -114,7 +143,7 @@ async function formatWithTokens(ms, tz, fmt) {
 }
 
 // 增强的时区偏移计算函数
-async function offsetMinutes(date, tz) {
+function offsetMinutes(date, tz) {
   // 首先尝试使用IANA时区支持
   if (ianaLoaded) {
     try {
@@ -146,7 +175,7 @@ function legacyOffsetMinutes(date, tz) {
 }
 
 // 增强的日期到时间戳转换函数
-async function dateToMs(d, tz) {
+function dateToMs(d, tz) {
   // 首先尝试使用IANA时区支持
   if (ianaLoaded) {
     try {
@@ -198,7 +227,7 @@ const WD_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // 新增：获取时区信息（增强版）
-async function getTzInfo(date, tz) {
+function getTzInfo(date, tz) {
   if (ianaLoaded) {
     try {
       return TimezoneCompatibility.getIanaTimezone().getTzInfo(date, tz);
@@ -244,12 +273,12 @@ function legacyGetTzInfo(date, tz) {
 }
 
 // 新增：检查时区是否支持历史数据
-async function supportsHistoricalData(tz) {
+function supportsHistoricalData(tz) {
   if (ianaLoaded) {
     try {
       return TimezoneCompatibility.getIanaTimezone().supportsHistoricalData(tz);
     } catch (error) {
-      console.warn('IANA supportsHistoricalData failed:', error);
+      console.warn('IANA supportsHistoricalData failed:", error);
       return false;
     }
   }
@@ -258,7 +287,7 @@ async function supportsHistoricalData(tz) {
 }
 
 // 新增：获取时区历史信息
-async function getTzHistoricalInfo(tz, year) {
+function getTzHistoricalInfo(tz, year) {
   if (ianaLoaded) {
     try {
       return TimezoneCompatibility.getIanaTimezone().getTzHistoricalInfo(tz, year);
@@ -277,7 +306,7 @@ async function getTzHistoricalInfo(tz, year) {
 }
 
 // 新增：获取增强时区列表
-async function getEnhancedTzList() {
+function getEnhancedTzList() {
   if (ianaLoaded) {
     try {
       return TimezoneCompatibility.getIanaTimezone().getEnhancedTzList();
@@ -302,8 +331,8 @@ async function getEnhancedTzList() {
   }));
 }
 
-// 导出所有函数和常量
-export {
+// 将所有函数和常量挂载到全局对象
+window.DatetimeEnhanced = {
   // 原有函数
   formatLocal,
   formatUTC,
@@ -329,3 +358,17 @@ export {
   partsMap,
   getTzFormatter
 };
+
+// 向后兼容：将函数直接挂载到全局
+window.formatLocal = formatLocal;
+window.formatUTC = formatUTC;
+window.formatTz = formatTz;
+window.tzParts = tzParts;
+window.formatWithTokens = formatWithTokens;
+window.offsetMinutes = offsetMinutes;
+window.dateToMs = dateToMs;
+window.initIanaTimezone = initIanaTimezone;
+window.getTzInfo = getTzInfo;
+window.supportsHistoricalData = supportsHistoricalData;
+window.getTzHistoricalInfo = getTzHistoricalInfo;
+window.getEnhancedTzList = getEnhancedTzList;

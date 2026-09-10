@@ -343,5 +343,3 @@ const IanaTimezone = {
 if (typeof window !== 'undefined') {
   window.IanaTimezone = IanaTimezone;
 }
-
-export default IanaTimezone;
