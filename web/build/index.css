@@ -60,7 +60,7 @@ html,body{height:100%;overflow:hidden}
 .app{display:flex;flex-direction:column;gap:0;height:100%;padding:0;overflow:hidden;min-width:760px;position:relative}
 
 .header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
-.tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px;flex:1 1 auto;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px;flex:0 1 auto;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{border:none;background:transparent;color:var(--dim);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;flex:0 0 auto;white-space:nowrap;position:relative}
 .tab .tab-text{flex:1}
