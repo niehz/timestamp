@@ -118,16 +118,39 @@ const DATE_FMT_MAX_ENABLED = 6;
 // 例如：Asia/Shanghai 在 1901 年前的 LMT 为 +08:05:43（485 + 43/60 分钟），
 // 引擎在 year 1200 也能给出 20:05:43 的墙钟时间（已实测验证）。
 
+// 构造"公元 y 年"的 UTC 毫秒。Date.UTC / Date 构造器会把 0..99 映射为 1900+y，
+// 因此 69、66 这类公元原值必须用 setUTCFullYear 显式构造到公鸡历原纪元。
+function eraUtcMs(y, mon, d, h, mi, se, ms) {
+  if (y >= 0 && y < 100) {
+    const t = new Date(0);
+    t.setUTCFullYear(y, mon, d);
+    t.setUTCHours(h, mi, se, ms || 0);
+    return t.getTime();
+  }
+  return Date.UTC(y, mon, d, h, mi, se, ms || 0);
+}
+
+// 本地时区等价构造（无显式 tz 时的墙钟→ms）。
+function eraLocalMs(y, mon, d, h, mi, se, ms) {
+  if (y >= 0 && y < 100) {
+    const t = new Date(0);
+    t.setFullYear(y, mon, d);
+    t.setHours(h, mi, se, ms || 0);
+    return t.getTime();
+  }
+  return new Date(y, mon, d, h, mi, se, ms || 0).getTime();
+}
+
 // 将 Intl 墙钟部件（month/day/hour/minute/second）重建为精确墙钟毫秒。
-// en-GB(gregory) 的 formatToParts 对公元前年份不输出 era（实测天文年 -1199 只给
-// "1200" 且无 BC 标记），因此不再解析 era：取实例 UTC 年的 y-1/y/y+1 三个候选年，
-// 真实偏移恒小于 ±24h，与 baseMs 差约 ±1 年的错误候选必然被最近者排除。
+// en-GB(gregory) 的 formatToParts 对公元前年份不输出 era；对公元 0..99 年只给 2 位
+// （"66" 既可能指 1966 也可能指 66AD）。候选年同时覆盖两个纪元（±1900 年），
+// 真实偏移恒小于 ±24h，与 baseMs 差约 ±1 年的正确纪元候选因最近而被选中。
 function ianaWallMs(baseMs, m) {
   const yy = new Date(baseMs).getUTCFullYear();
   const mo = Number(m.month) - 1, d = Number(m.day), h = Number(m.hour) % 24, mi = Number(m.minute) || 0, se = Number(m.second) || 0;
   let best = 0, bd = Infinity;
-  for (const y of [yy - 1, yy, yy + 1]) {
-    const c = Date.UTC(y >= 0 && y < 100 ? y + 1900 : y, mo, d, h, mi, se);
+  for (const y of [yy - 1, yy, yy + 1, yy + 1899, yy + 1900, yy + 1901]) {
+    const c = eraUtcMs(y, mo, d, h, mi, se, 0);
     const dd = Math.abs(c - baseMs);
     if (dd < bd) { bd = dd; best = c; }
   }
@@ -244,6 +267,9 @@ function offsetMinutes(date, tz) {
 }
 
 function formatOffset(mins) {
+  // 真实时区偏移恒在 -16h..+16h 内（现行 -12:00..+14:00，历史 LMT 略宽）。
+  // 超出即换算失准（如公元 0-99 年纪元歧义），以哨兵杜绝荒谬值进 UI。
+  if (!Number.isFinite(mins) || Math.abs(mins) > 960) return 'UTC??';
   const sign = mins >= 0 ? '+' : '-';
   const m = Math.abs(mins);
   const h = String(Math.floor(m / 60)).padStart(2, '0');
@@ -260,10 +286,8 @@ function offsetLabel(tz, inst) {
 
 function dateToMs(d, tz) {
   const hasMs = typeof d.ms === 'number';
-  if (!tz) return hasMs ? new Date(d.y, d.mo - 1, d.d, d.h, d.mi, d.se, d.ms).getTime()
-                        : new Date(d.y, d.mo - 1, d.d, d.h, d.mi, d.se).getTime();
-  const guess = hasMs ? Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.se, d.ms)
-                      : Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.se);
+  if (!tz) return eraLocalMs(d.y, d.mo - 1, d.d, d.h, d.mi, d.se, hasMs ? d.ms : 0);
+  const guess = eraUtcMs(d.y, d.mo - 1, d.d, d.h, d.mi, d.se, hasMs ? d.ms : 0);
   let ms = guess - zoneOffsetMs(new Date(guess), tz);
   // DST 切换日：首次 guess 的偏移可能属于另一时区段，迭代取偏移直到稳定（正常 1 次收敛）
   for (let i = 0; i < 8; i++) {
@@ -272,6 +296,50 @@ function dateToMs(d, tz) {
     ms = next;
   }
   return ms;
+}
+
+// 返回墙钟 w 在时区 tz 下全部可能的瞬时毫秒（升序、去重）：
+// 0 个 = 跳空（夏令时向前，该墙钟不对应任何瞬时）；
+// 1 个 = 唯一瞬时；2 个 = 秋季回退重叠小时（两瞬时都真实存在）。
+// 供 D2T 卡片的歧义下拉使用；dateToMs 仍固定取其中一个（较晚者）。
+function dateToMsCandidates(w, tz) {
+  const hasMs = typeof w.ms === 'number';
+  const wMs = eraUtcMs(w.y, w.mo - 1, w.d, w.h, w.mi, w.se, hasMs ? w.ms : 0);
+  if (!tz || tz === 'UTC' || /^FIXED:/.test(tz)) return [dateToMs(w, tz)];
+  const matches = (p) => p && p.y === w.y && p.mo === w.mo && p.d === w.d && p.h === w.h && p.mi === w.mi && p.se === w.se && p.ms === (hasMs ? w.ms : 0);
+  const ms0 = dateToMs(w, tz);
+  const fastOk = matches(tzParts(new Date(ms0), tz));
+  // 快路径：默认瞬时墙钟吻合 且 邻域偏移恒定 → 唯一瞬时
+  if (fastOk) {
+    const baseOff = offsetMinutes(new Date(ms0), tz);
+    let same = true;
+    for (const d of [1800000, 3600000, 7200000, 14400000, 28800000]) {
+      if (offsetMinutes(new Date(ms0 - d), tz) !== baseOff || offsetMinutes(new Date(ms0 + d), tz) !== baseOff) { same = false; break; }
+    }
+    if (same) return [ms0];
+  }
+  // 全量：在 wMs/ms0 邻域收集真实偏移取值，逐一反推瞬时并做墙钟一致过滤
+  const offs = new Set();
+  const collect = (t) => {
+    const o = offsetMinutes(new Date(t), tz);
+    if (Number.isFinite(o)) offs.add(o);
+  };
+  collect(ms0);
+  collect(wMs);
+  for (const d of [1800000, 3600000, 7200000, 14400000, 28800000, 43200000]) {
+    collect(ms0 - d); collect(ms0 + d); collect(wMs - d); collect(wMs + d);
+  }
+  const cands = [];
+  const seen = new Set();
+  for (const o of offs) {
+    const t = wMs - Math.round(o * 60000);
+    if (seen.has(t)) continue;
+    seen.add(t);
+    if (matches(tzParts(new Date(t), tz))) cands.push(t);
+  }
+  // 保证默认瞬时在候选集内（若其墙钟吻合）
+  if (fastOk && !seen.has(ms0)) cands.push(ms0);
+  return [...new Set(cands)].sort((a, b) => a - b);
 }
 
 function parseRelative(text) {

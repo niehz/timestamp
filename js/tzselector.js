@@ -120,12 +120,12 @@ function initCustomTzSelector() {
   renderOffsetChips();
 }
 
-// 芯片当前时刻：date→ts 取输入日期、ts→date 取当前时间戳，否则用 now。
+// 芯片当前时刻：date→ts 取卡片呈现的时刻、ts→date 取当前时间戳，否则用 now。
 function chipInstant(kind) {
   if (kind === "d2t") {
     try {
-      const sel = readDateSelection();
-      if (!sel.empty && !sel.err && typeof sel.ms === "number") return new Date(sel.ms);
+      const ms = currentD2tMs();
+      if (ms !== null && ms !== undefined) return new Date(ms);
     } catch (e) {}
   } else if (kind === "t2d") {
     try {

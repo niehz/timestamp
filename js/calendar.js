@@ -432,7 +432,7 @@ function calNavigate(dir) {
 }
 
 function validate(ms) {
-  return Number.isFinite(ms) && ms >= MIN_TS && ms <= MAX_TS;
+  return Number.isFinite(ms) && ms >= SAFE_MIN && ms <= SAFE_MAX;
 }
 
 function t(keys) {
@@ -455,14 +455,22 @@ function toast(msg) {
 }
 
 function copyText(text, btn) {
-  if (window.utools) utools.copyText(String(text));
-  else if (navigator.clipboard) navigator.clipboard.writeText(String(text));
-  toast(t('copiedMsg'));
-  if (btn) {
-    const old = btn.textContent;
-    btn.textContent = t('copied');
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 900);
+  const flip = () => {
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = t('copied');
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 900);
+    }
+  };
+  const done = () => { toast(t('copiedMsg')); flip(); };
+  const fail = () => toast(t('copyFailedMsg'));
+  if (window.utools) {
+    try { utools.copyText(String(text)); done(); } catch (e) { fail(); }
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(String(text)).then(done, fail);
+  } else {
+    fail();
   }
 }
 

@@ -231,7 +231,7 @@ btnPause.addEventListener('click', () => {
 });
 
 document.addEventListener('click', (e) => {
-  if (e.target.closest('.t2d-popover')) return;
+  if (e.target.closest('.t2d-popover, .d2t-ambig-popover')) return;
   const block = e.target.closest('.result-block');
   if (block) {
     const val = block.querySelector('.result-value');
@@ -266,6 +266,35 @@ t2dPopoverEl.addEventListener('click', (e) => {
   copyText(item.dataset.value, null);
   hideT2dPopover();
 });
+
+// —— D2T 歧义候选浮层：悬停展示两个瞬时，点击选择其一（结构/交互镜像 t2d 浮层） ——
+let ambigPopoverHideTimer = null;
+function hideAmbigPopover() {
+  clearTimeout(ambigPopoverHideTimer);
+  if (d2tResultEl) d2tResultEl.classList.remove('show-ambig');
+}
+if (d2tResultEl) {
+  d2tResultEl.addEventListener('mouseenter', () => {
+    clearTimeout(ambigPopoverHideTimer);
+    if (typeof renderAmbigPopover === 'function') renderAmbigPopover();
+    if (d2tResultEl.classList.contains('ambig')) d2tResultEl.classList.add('show-ambig');
+  });
+  d2tResultEl.addEventListener('mouseleave', () => {
+    clearTimeout(ambigPopoverHideTimer);
+    ambigPopoverHideTimer = setTimeout(() => d2tResultEl.classList.remove('show-ambig'), 180);
+  });
+}
+if (d2tAmbigPopoverEl) {
+  d2tAmbigPopoverEl.addEventListener('mouseenter', () => {
+    clearTimeout(ambigPopoverHideTimer);
+  });
+  d2tAmbigPopoverEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.d2t-ambig-pop-item');
+    if (!item) return;
+    if (typeof selectD2tCandidate === 'function') selectD2tCandidate(Number(item.dataset.ms));
+    hideAmbigPopover();
+  });
+}
 
 const buildTagEl = $('#build-tag');
 if (buildTagEl) buildTagEl.textContent = BUILD;
