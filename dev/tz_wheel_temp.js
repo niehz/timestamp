@@ -1,13 +1,11 @@
 // 基于现有滚轮实现的时区选择器
 function initCustomTzSelector() {
-  console.log('开始初始化双滚轮时区选择器...');
   const hourWheel = $('#tz-hour-wheel');
   const minWheel = $('#tz-min-wheel');
   const inputTz = $('#input-tz');
   const resetBtn = $('#tz-reset-btn');
   
   if (!hourWheel || !minWheel || !inputTz) {
-    console.error('双滚轮时区选择器元素未找到');
     return;
   }
   
@@ -19,16 +17,6 @@ function initCustomTzSelector() {
   
   // 构建小时滚轮
   function buildHourWheel() {
-    console.log('构建小时滚轮...');
-    console.log('hourWheel 容器信息:', {
-      offsetHeight: hourWheel.offsetHeight,
-      clientHeight: hourWheel.clientHeight,
-      scrollHeight: hourWheel.scrollHeight,
-      paddingTop: hourWheel.style.paddingTop,
-      paddingBottom: hourWheel.style.paddingBottom,
-      borderTop: hourWheel.style.borderTop,
-      borderBottom: hourWheel.style.borderBottom
-    });
     
     hourWheel.innerHTML = '';
     hourWheel.style.paddingTop = '3px';
@@ -67,27 +55,10 @@ function initCustomTzSelector() {
       hourWheel.appendChild(item);
     }
     
-    console.log('构建完成后 hourWheel:', {
-      offsetHeight: hourWheel.offsetHeight,
-      clientHeight: hourWheel.clientHeight,
-      scrollHeight: hourWheel.scrollHeight,
-      childrenCount: hourWheel.children.length
-    });
     
     // 打印第一个 wheel-item 的信息
     if (hourWheel.children.length > 1) { // 第一个是 hint
       const firstItem = hourWheel.children[1];
-      console.log('第一个 wheel-item:', {
-        offsetHeight: firstItem.offsetHeight,
-        clientHeight: firstItem.clientHeight,
-        scrollHeight: firstItem.scrollHeight,
-        height: firstItem.style.height,
-        lineHeight: firstItem.style.lineHeight,
-        paddingTop: firstItem.style.paddingTop,
-        paddingBottom: firstItem.style.paddingBottom,
-        borderTop: firstItem.style.borderTop,
-        borderBottom: firstItem.style.borderBottom
-      });
     }
     
     // 设置初始选中值
@@ -111,13 +82,6 @@ function initCustomTzSelector() {
       if (ni === hourWheel._sel) return;
       hourWheel._sel = ni;
       highlightWheel(hourWheel, ni);
-      console.log('小时滚轮滚动:', {
-        newIndex: ni,
-        scrollAmount: ni * 34,
-        currentScrollTop: hourWheel.scrollTop,
-        elementHeight: hourWheel.offsetHeight,
-        elementScrollHeight: hourWheel.scrollHeight
-      });
       hourWheel._suspend = true;
       hourWheel.scrollTop = ni * 34;
       if (typeof setTimeout !== 'undefined') setTimeout(() => { hourWheel._suspend = false; }, 220);
@@ -137,16 +101,6 @@ function initCustomTzSelector() {
   
   // 构建分钟滚轮
   function buildMinWheel() {
-    console.log('构建分钟滚轮...');
-    console.log('minWheel 容器信息:', {
-      offsetHeight: minWheel.offsetHeight,
-      clientHeight: minWheel.clientHeight,
-      scrollHeight: minWheel.scrollHeight,
-      paddingTop: minWheel.style.paddingTop,
-      paddingBottom: minWheel.style.paddingBottom,
-      borderTop: minWheel.style.borderTop,
-      borderBottom: minWheel.style.borderBottom
-    });
     
     minWheel.innerHTML = '';
     minWheel.style.paddingTop = '3px';
@@ -185,27 +139,10 @@ function initCustomTzSelector() {
       minWheel.appendChild(item);
     }
     
-    console.log('构建完成后 minWheel:', {
-      offsetHeight: minWheel.offsetHeight,
-      clientHeight: minWheel.clientHeight,
-      scrollHeight: minWheel.scrollHeight,
-      childrenCount: minWheel.children.length
-    });
     
     // 打印第一个 wheel-item 的信息
     if (minWheel.children.length > 1) { // 第一个是 hint
       const firstItem = minWheel.children[1];
-      console.log('第一个 wheel-item:', {
-        offsetHeight: firstItem.offsetHeight,
-        clientHeight: firstItem.clientHeight,
-        scrollHeight: firstItem.scrollHeight,
-        height: firstItem.style.height,
-        lineHeight: firstItem.style.lineHeight,
-        paddingTop: firstItem.style.paddingTop,
-        paddingBottom: firstItem.style.paddingBottom,
-        borderTop: firstItem.style.borderTop,
-        borderBottom: firstItem.style.borderBottom
-      });
     }
     
     // 设置初始选中值
@@ -232,13 +169,6 @@ function initCustomTzSelector() {
       if (ni === minWheel._sel) return;
       minWheel._sel = ni;
       highlightWheel(minWheel, ni);
-      console.log('分钟滚轮滚动:', {
-        newIndex: ni,
-        scrollAmount: ni * 34,
-        currentScrollTop: minWheel.scrollTop,
-        elementHeight: minWheel.offsetHeight,
-        elementScrollHeight: minWheel.scrollHeight
-      });
       minWheel._suspend = true;
       minWheel.scrollTop = ni * 34;
       if (typeof setTimeout !== 'undefined') setTimeout(() => { minWheel._suspend = false; }, 220);
@@ -330,5 +260,4 @@ function initCustomTzSelector() {
   buildHourWheel();
   buildMinWheel();
   
-  console.log('双滚轮时区选择器初始化完成');
 }
