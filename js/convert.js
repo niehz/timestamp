@@ -172,6 +172,27 @@ function currentT2dMs() {
   return Number(n);
 }
 
+// D2T 卡片当前显示的纪元毫秒，与 renderConvert 使用同一条计算路径。
+// 分栏模式（日期/时间/小数）下 ms 字段只是亚秒毫秒，须经 dateToMs 还原完整瞬间。
+function currentD2tMs() {
+  const sel = readDateSelection();
+  if (!sel || sel.empty || sel.err) return null;
+  if (sel.kind === 'abs') return sel.ms;
+  const ms = dateToMs(sel, inputTzEl.value);
+  return validate(ms) ? ms : null;
+}
+
+// 解析结果 → 芯片瞬间（纯函数，便于单测）。返回 null 表示无有效瞬间。
+function chipInstantFromSel(sel, tz) {
+  if (!sel || sel.empty || sel.err) return null;
+  if (sel.kind === 'abs' && typeof sel.ms === 'number') return new Date(sel.ms);
+  if (typeof sel.y === 'number') {
+    const ms = dateToMs(sel, tz);
+    return validate(ms) ? new Date(ms) : null;
+  }
+  return null;
+}
+
 function renderT2dPopover() {
   const ms = currentT2dMs();
   if (ms === null) { t2dPopoverEl.innerHTML = ''; return; }
