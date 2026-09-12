@@ -1,6 +1,6 @@
 {
   "name": "timestamp-web-electron",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Timestamp converter desktop shell (Electron) reusing the uTools plugin frontend",
   "author": "timestamp-developer",
   "private": true,
