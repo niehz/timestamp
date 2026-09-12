@@ -57,6 +57,19 @@
 ### 浏览器直接使用
 无需安装，直接打开 `index.html` 即可体验全部功能；非 uTools 环境下复制功能回退到浏览器剪贴板 API。
 
+### 桌面端（Electron）打包
+`web/` 下提供 Electron 桌面壳：托盘后台运行、`Ctrl+Alt+T` 全局快捷键、关闭确认、开机自启与快捷键设置持久化，复用本仓库前端界面（`web/build`）作为打包负载。
+
+```bash
+cd web/electron
+npm ci                 # 按 package-lock.json 复现依赖
+npm run dist           # 产出 web/electron/release/ 下的安装包与 zip
+```
+
+- 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（nsis + zip、中文安装向导、Electron 44.3.0、npmmirror 镜像）。
+- `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，打包前需同步 `web/build`，否则桌面产物会是旧界面。**
+- `web/electron/node_modules/` 与 `web/electron/release/` 均为依赖/构建产物，不入库。
+
 ## 使用说明
 
 1. **日期 → 时间戳**：左侧输入日期（`2026-09-07`、`2026年9月7日 13时49分08秒`）或相对 / 部分日期，从快捷建议中选择，点击结果复制。
@@ -96,6 +109,12 @@ timestamp/
 └── dev/
     ├── scripts/        # validate.mjs、load-test.mjs
     └── tests/          # 单元测试（node:test）
+
+web/
+├── build/              # 前端镜像 + PWA 壳（web-boot.js / manifest / sw），Electron 打包负载
+└── electron/           # 桌面壳源码（main.js/preload.js/package.json）+ 打包配置
+    ├── node_modules/   # 依赖（不入库）
+    └── release/        # 打包产物（不入库）
 ```
 
 ## 开发

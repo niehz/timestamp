@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>时间戳转换器 / Timestamp Converter</title>
+  <link rel="stylesheet" href="index.css?v=1789670000000">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="tabs">
+        <button class="tab active" data-tab="sec">
+          <span class="tab-text">秒级</span>
+          <span class="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="ms">
+          <span class="tab-text">毫秒级</span>
+          <span class="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="us">
+          <span class="tab-text">微秒级</span>
+          <span class="precision-indicator"></span>
+        </button>
+        <button class="tab" data-tab="ns">
+          <span class="tab-text">纳秒级</span>
+          <span class="precision-indicator"></span>
+        </button>
+      </div>
+      <div class="header-right">
+        <button class="lang-btn" id="btn-lang">EN</button>
+        <button class="tz-config-btn" id="tz-config-btn" title="配置时区" data-i18n-title="tzConfigTitle">⚙️</button>
+        <div class="tz-group">
+          <label for="timezone">时区</label>
+          <select id="timezone"></select>
+        </div>
+      </div>
+    </header>
+
+    <section class="main-grid">
+      <div class="cards">
+        <div class="card" id="card-d2t">
+          <div class="card-title"><span data-i18n="dateToTs">日期 → 时间戳</span><span class="card-offset" id="d2t-offset"></span></div>
+          <div class="card-inner">
+            <div class="left-col">
+              <div class="date-input-row">
+                <div class="date-field" id="date-field">
+                  <input id="date-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="YYYY-MM-DD">
+                  <input id="time-input" type="text" spellcheck="false" autocomplete="off"
+                         placeholder="HH:mm:ss">
+                  <input id="frac-input" type="text" spellcheck="false" autocomplete="off"
+                         inputmode="decimal" style="display:none">
+                  <button class="cal-btn" id="btn-calendar" title="打开日历" data-i18n-title="calendarTitle">🕒</button>
+                  <button type="button" class="clear-btn" id="btn-date-clear" title="清空" data-i18n-title="clearTitle">×</button>
+                  <div class="date-suggest" id="date-suggest"></div>
+                  <div class="cal-popover" id="calendar">
+                  <div class="cal-main">
+                    <div class="cal-left">
+                       <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
+                      <div class="cal-head">
+                        <button class="cal-nav" id="cal-prev" title="上一年" data-i18n-title="calPrevTitle">◀</button>
+                        <button class="cal-title-btn" id="cal-title" title="点击切换 年月" data-i18n-title="calTitleToggle">2026年 8月</button>
+                        <button class="cal-nav" id="cal-next" title="下一年" data-i18n-title="calNextTitle">▶</button>
+                      </div>
+                      <div class="cal-body" id="cal-body-day">
+                        <div class="cal-week">
+                          <span data-w="Su">日</span><span data-w="Mo">一</span><span data-w="Tu">二</span><span data-w="We">三</span><span data-w="Th">四</span><span data-w="Fr">五</span><span data-w="Sa">六</span>
+                        </div>
+                        <div class="cal-grid" id="cal-grid"></div>
+                      </div>
+                      <div class="cal-body" id="cal-body-month" style="display:none">
+                        <div class="cal-months" id="cal-months"></div>
+                      </div>
+                      <div class="cal-body" id="cal-body-year" style="display:none">
+                        <div class="cal-year-head" id="cal-year-head"></div>
+                        <div class="cal-years" id="cal-years"></div>
+                      </div>
+                    </div>
+                    <div class="cal-right">
+                      <input id="cal-time-input" class="cal-time-input" type="text" spellcheck="false" autocomplete="off" inputmode="numeric" placeholder="HH:MM:SS">
+                      <div class="cal-time-wheels">
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="hh">0</button>
+                          <div class="wheel" id="wheel-hh"></div>
+                        </div>
+                        <span class="sep">:</span>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="mm">0</button>
+                          <div class="wheel" id="wheel-mm"></div>
+                        </div>
+                        <span class="sep">:</span>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ss">0</button>
+                          <div class="wheel" id="wheel-ss"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ms">0</button>
+                          <div class="wheel ms-wheel" id="wheel-ms" style="display:none"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="us">0</button>
+                          <div class="wheel us-wheel" id="wheel-us" style="display:none"></div>
+                        </div>
+                        <div class="wheel-col">
+                          <button type="button" class="wheel-zero" data-wheel="ns">0</button>
+                          <div class="wheel ns-wheel" id="wheel-ns" style="display:none"></div>
+                        </div>
+                      </div>
+                      <div class="cal-time-actions">
+                        <button class="btn-primary cal-now" id="cal-now">此刻</button>
+                        <button class="btn-primary cal-ok" id="cal-ok" data-i18n="ok">确定</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                              </div>
+<select id="input-tz" style="display: none;"></select>
+              </div>
+                <div class="input-hint" id="d2t-hint"></div>
+            </div>
+            <div class="right-col">
+              <div class="result-block" id="d2t-result">
+                <div class="result-value" id="d2t-val">—</div>
+              </div>
+              <div class="input-hint" id="d2t-result-hint"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="card-t2d">
+          <div class="card-title"><span data-i18n="tsToDate">时间戳 → 日期</span><span class="card-offset" id="t2d-offset"></span></div>
+          <div class="card-inner">
+            <div class="left-col">
+              <div class="input-box">
+                <input id="ts-input" type="text" spellcheck="false">
+                <button type="button" class="clear-btn" id="btn-ts-clear" title="清空" data-i18n-title="clearTitle">×</button>
+              </div>
+              <div class="input-hint" id="t2d-hint"></div>
+            </div>
+            <div class="right-col">
+              <div class="result-block" id="t2d-result">
+                <div class="result-value" id="t2d-val">—</div>
+                <div class="t2d-popover" id="t2d-popover"></div>
+              </div>
+              <div class="input-hint" id="t2d-result-hint"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+              <span data-i18n="currentTime">当前时间</span>
+              <span class="live-dot" id="live-dot"></span>
+              <span class="card-offset" id="now-offset"></span>
+              <button class="btn-pause" id="btn-pause" data-i18n="pause">暂停</button>
+            </div>
+          <div class="card-inner now-card-inner">
+            <div class="left-col">
+              <div class="now-grid">
+                <div class="now-item clickable" data-copy-val>
+                  <span class="now-label" data-i18n="localTime">本地时间</span>
+                  <span class="now-value mono" id="now-date">—</span>
+                </div>
+                <div class="now-item clickable" id="now-sec-item" data-copy-val>
+                  <span class="now-label" data-i18n="secTs">秒级时间戳</span>
+                  <span class="now-value mono" id="now-sec">—</span>
+                </div>
+                <div class="now-item clickable" id="now-ms-item" data-copy-val>
+                  <span class="now-label" data-i18n="msTs">毫秒级时间戳</span>
+                  <span class="now-value mono" id="now-ms">—</span>
+                </div>
+                <div class="now-item clickable" id="now-us-item" data-copy-val>
+                  <span class="now-label" data-i18n="usTs">微秒级时间戳</span>
+                  <span class="now-value mono" id="now-us">—</span>
+                </div>
+                <div class="now-item clickable" id="now-ns-item" data-copy-val>
+                  <span class="now-label" data-i18n="nsTs">纳秒级时间戳</span>
+                  <span class="now-value mono" id="now-ns">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer class="app-footer">
+        <span class="build-tag" id="build-tag"></span>
+        <span class="donate-link" id="donate-link" data-i18n="donate">支持开发者</span>
+      </footer>
+    </section>
+  </div>
+
+  <!-- 配置弹窗 -->
+  <div id="tz-config-modal" class="modal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="config-tabs" id="config-tabs">
+          <button type="button" class="config-tab active" data-tab="tz" data-i18n="tabTimezone">时区配置</button>
+          <button type="button" class="config-tab" data-tab="fmt" data-i18n="tabDateFormat">日期格式</button>
+          <button type="button" class="config-tab" data-tab="parse" data-i18n="tabDateParse">日期解析</button>
+          <button type="button" class="config-tab" data-tab="sys" data-i18n="tabSystem">系统设置</button>
+        </div>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="config-pane" id="pane-tz">
+          <p class="config-desc" data-i18n="tzConfigDesc">勾选要在时区下拉框中显示的时区</p>
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="tz-search" placeholder="搜索时区名称...">
+              <div class="tz-filter" id="tz-filter" role="group">
+                <button type="button" class="tz-filter-btn active" data-value="all" data-i18n="filterAll">全部</button>
+                <button type="button" class="tz-filter-btn" data-value="selected" data-i18n="filterSelected">已选中</button>
+                <button type="button" class="tz-filter-btn" data-value="unselected" data-i18n="filterUnselected">未选中</button>
+              </div>
+              <div class="timezone-actions">
+                <button class="btn-secondary" id="reset-tz-config" data-i18n="reset">重置默认</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="timezone-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="customTimezones">自定义时区</h4>
+            <p class="config-desc" data-i18n="customTzDesc">添加自定义时区，支持中文名、英文名和UTC偏移量（-12 到 +14）</p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-tz-cn" placeholder="中文名（如 纽约）">
+                <input type="text" id="custom-tz-en" placeholder="English name (e.g. New York)">
+                <input type="text" id="custom-tz-offset" placeholder="偏移（如 +08:00 / +8 / 8）">
+              </div>
+              <div class="custom-tz-form-row optional-row">
+                <input type="text" id="custom-tz-abbr" placeholder="别名（可选，如 SJZ）">
+                <input type="text" id="custom-tz-iana" placeholder="真实时区（可选，如 America/New_York，自动跟随夏令时）">
+                <button class="btn-primary" id="custom-tz-add" data-i18n="add">添加</button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-tz-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-pane hidden" id="pane-fmt">
+          <p class="config-desc" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</p>
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="date-fmt-search" placeholder="搜索格式（别名/格式串）...">
+              <div class="timezone-actions">
+                <button class="btn-secondary" id="reset-fmt-config" data-i18n="resetFormats">重置格式</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="date-format-list"></div>
+            </div>
+          </div>
+           <div class="config-section custom-tz-section">
+            <h4 data-i18n="customFormats">自定义格式</h4>
+            <p class="config-desc" data-i18n="builtinFormatsDesc">别名可增强搜索，格式串使用占位符：YYYY年 MM月 DD日 HH 24小时・hh 12小时 mm分 ss秒 SSS毫秒 A AM・PM W 星期</p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-fmt-label" placeholder="别名（如 我的格式）">
+                <input type="text" id="custom-fmt-input" placeholder="格式串，如 YYYY年MM月DD日 HH:mm:ss">
+                <button class="btn-primary" id="custom-fmt-add" data-i18n="add">添加</button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-fmt-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-pane hidden" id="pane-parse">
+          <p class="config-desc" data-i18n="dateParseDesc">勾选要启用的日期解析格式，无关键字时自动识别日期字符串</p>
+          <div class="config-section">
+            <div class="timezone-search">
+              <input type="text" id="date-parse-search" placeholder="搜索格式...">
+              <div class="timezone-actions">
+                <button class="btn-secondary" id="reset-parse-config" data-i18n="resetParse">重置解析</button>
+              </div>
+            </div>
+            <div class="timezone-list-container">
+              <div class="timezone-list" id="date-parse-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="customParse">自定义解析规则</h4>
+            <p class="config-desc" data-i18n="customParseDesc"></p>
+            <div class="custom-tz-form">
+              <div class="custom-tz-form-row">
+                <input type="text" id="custom-parse-label" placeholder="名称（可选）">
+                <input type="text" id="custom-parse-input" data-type="placeholder" placeholder="占位符格式或正则">
+              </div>
+              <div class="custom-tz-form-row">
+                <span class="custom-parse-type-label" data-i18n="customParseType"></span>
+                <div class="tz-filter" id="custom-parse-type">
+                  <button type="button" class="tz-filter-btn active" data-value="placeholder" data-i18n="customParseTypePlaceholder"></button>
+                  <button type="button" class="tz-filter-btn" data-value="regex" data-i18n="customParseTypeRegex"></button>
+                </div>
+                <button class="btn-primary" id="custom-parse-add" data-i18n="customParseAdd"></button>
+              </div>
+            </div>
+            <div class="timezone-list-container custom-tz-list-container">
+              <div class="timezone-list" id="custom-parse-list"></div>
+            </div>
+          </div>
+
+          <div class="config-section custom-tz-section">
+            <h4 data-i18n="monthDayStyle">月日歧义风格</h4>
+            <p class="config-desc" data-i18n="monthDayStyleDesc">07/09/2026 是月日还是日月顺序，无歧义风格默认本地，二位数年份自动补当年（如 09-07）</p>
+            <div class="tz-filter" id="parse-style">
+              <button type="button" class="tz-filter-btn active" data-value="us" data-i18n="styleUs">美式 MM/DD</button>
+              <button type="button" class="tz-filter-btn" data-value="eu" data-i18n="styleEu">欧式 DD/MM</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-pane hidden" id="pane-sys">
+          <p class="config-desc" data-i18n="sysConfigDesc">设置默认TAB页、精度显示、微秒/纳秒显示方式与主题</p>
+          <div class="config-section">
+            <h4 data-i18n="sysDefaultTab">默认进入TAB页</h4>
+            <p class="config-desc" data-i18n="sysDefaultTabDesc">选择插件打开时默认进入的TAB页</p>
+            <div class="tz-filter" id="sys-default-tab">
+              <button type="button" class="tz-filter-btn" data-value="sec" data-i18n="secTab">秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ms" data-i18n="msTab">毫秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="us" data-i18n="usTab">微秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ns" data-i18n="nsTab">纳秒级</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 data-i18n="sysShowPrecision">精度显示</h4>
+            <p class="config-desc" data-i18n="sysShowPrecisionDesc">精度层层递进：选中纳秒显示毫秒+微秒+纳秒，选中微秒显示毫秒+微秒，选中毫秒仅显示毫秒，选中秒级则只显示时分秒</p>
+            <div class="tz-filter" id="sys-precision">
+              <button type="button" class="tz-filter-btn" data-value="sec" data-i18n="secTab">秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ms" data-i18n="msTab">毫秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="us" data-i18n="usTab">微秒级</button>
+              <button type="button" class="tz-filter-btn" data-value="ns" data-i18n="nsTab">纳秒级</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 data-i18n="sysUsNs">微秒/纳秒显示方式</h4>
+            <p class="config-desc" data-i18n="sysUsNsDesc">由当前毫秒推算并与毫秒显示一致，或随机填充秒后 6/9 位</p>
+            <div class="tz-filter" id="sys-usns">
+              <button type="button" class="tz-filter-btn" data-value="derive" data-i18n="sysUsNsDerive">与毫秒推算一致</button>
+              <button type="button" class="tz-filter-btn" data-value="random" data-i18n="sysUsNsRandom">随机</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <h4 data-i18n="sysTheme">主题</h4>
+            <p class="config-desc" data-i18n="sysThemeDesc">自动跟随系统外观，或固定使用黑夜/白天主题</p>
+            <div class="tz-filter" id="sys-theme">
+              <button type="button" class="tz-filter-btn" data-value="auto" data-i18n="sysThemeAuto">自动</button>
+              <button type="button" class="tz-filter-btn" data-value="dark" data-i18n="sysThemeDark">黑夜</button>
+              <button type="button" class="tz-filter-btn" data-value="light" data-i18n="sysThemeLight">白天</button>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <button class="btn-secondary" id="reset-sys-config" data-i18n="reset">重置默认</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="donate-modal" class="modal">
+    <div class="modal-content donate-content">
+      <div class="modal-header">
+        <h3 data-i18n="donateTitle">支持开发者</h3>
+        <button type="button" class="modal-close" id="donate-close">×</button>
+      </div>
+      <div class="modal-body donate-body">
+        <p class="config-desc" data-i18n="donateDesc">如果这个工具帮到了你，可以请我喝杯咖啡 ☕</p>
+        <div class="donate-qr">
+          <img src="assets/donate_wechat.png" alt="微信赞赏码">
+        </div>
+        <p class="config-desc" data-i18n="donateThanks">感谢你的支持</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tz-overlay" id="tz-overlay" role="dialog" aria-label="Timezone override">
+    <div class="tz-ov-head">
+      <input type="text" id="tz-ov-search" autocomplete="off" spellcheck="false" placeholder="搜索时区...">
+      <span class="tz-ov-current" id="tz-ov-current"></span>
+    </div>
+    <div class="tz-ov-results" id="tz-ov-results"></div>
+    <div class="tz-ov-sep"></div>
+    <div class="tz-ov-offset-group">
+      <label for="tz-ov-select" data-i18n="customOffset">自定义偏移</label>
+      <select id="tz-ov-select">
+        <option value="">选择常见时区</option>
+        <option value="-12:00">UTC-12:00</option>
+        <option value="-11:00">UTC-11:00</option>
+        <option value="-10:00">UTC-10:00</option>
+        <option value="-09:00">UTC-09:00</option>
+        <option value="-08:00">UTC-08:00</option>
+        <option value="-07:00">UTC-07:00</option>
+        <option value="-06:00">UTC-06:00</option>
+        <option value="-05:00">UTC-05:00</option>
+        <option value="-04:00">UTC-04:00</option>
+        <option value="-03:00">UTC-03:00</option>
+        <option value="-02:00">UTC-02:00</option>
+        <option value="-01:00">UTC-01:00</option>
+        <option value="+00:00">UTC+00:00</option>
+        <option value="+01:00">UTC+01:00</option>
+        <option value="+02:00">UTC+02:00</option>
+        <option value="+03:00">UTC+03:00</option>
+        <option value="+03:30">UTC+03:30</option>
+        <option value="+04:00">UTC+04:00</option>
+        <option value="+04:30">UTC+04:30</option>
+        <option value="+05:00">UTC+05:00</option>
+        <option value="+05:30">UTC+05:30</option>
+        <option value="+05:45">UTC+05:45</option>
+        <option value="+06:00">UTC+06:00</option>
+        <option value="+06:30">UTC+06:30</option>
+        <option value="+07:00">UTC+07:00</option>
+        <option value="+08:00">UTC+08:00</option>
+        <option value="+08:30">UTC+08:30</option>
+        <option value="+09:00">UTC+09:00</option>
+        <option value="+09:30">UTC+09:30</option>
+        <option value="+10:00">UTC+10:00</option>
+        <option value="+10:30">UTC+10:30</option>
+        <option value="+11:00">UTC+11:00</option>
+        <option value="+12:00">UTC+12:00</option>
+        <option value="+12:45">UTC+12:45</option>
+        <option value="+13:00">UTC+13:00</option>
+        <option value="+14:00">UTC+14:00</option>
+      </select>
+      <input type="text" id="tz-ov-offset" autocomplete="off" spellcheck="false" placeholder="或输入自定义偏移（如 +08:00）">
+    </div>
+    <div class="tz-ov-actions">
+      <button type="button" class="tz-overlay-apply" id="tz-ov-apply" data-i18n="ok">确定</button>
+      <button type="button" class="tz-overlay-reset" id="tz-ov-reset" data-i18n="tzResetTitle">⟲ 重置为全局时区</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/utils/constants.js"></script>
+  <script src="js/data/timezones.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/utils/validators.js"></script>
+  <script src="js/utils/error-handler.js"></script>
+  <script>setupGlobalErrorTrap();</script>
+  <script src="js/core.js?v=1789670000000"></script>
+  <script src="js/datetime.js?v=1789670000000"></script>
+  <script src="js/fields.js?v=1789670000000"></script>
+  <script src="js/calendar.js?v=1789670000000"></script>
+  <script src="js/convert.js?v=1789670000000"></script>
+  <script src="js/tzselector.js?v=1789670000000"></script>
+  <script src="js/events.js?v=1789670000000"></script>
+</body>
+</html>
