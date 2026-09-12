@@ -67,6 +67,7 @@ npm run dist           # 产出 web/electron/release/ 下的安装包与 zip
 ```
 
 - 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（nsis + zip、中文安装向导、Electron 44.3.0、npmmirror 镜像）。
+- `dist` 入口 `dist.cjs` 自动注入国内镜像环境变量（NSIS / winCodeSign / Electron 二进制均走 npmmirror），**在无法访问 GitHub 的网络下也能打包**；如遇 `connect ETIMEDOUT 20.205.243.166:443` 之类错误，确认无代理后重试即可。
 - `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，打包前需同步 `web/build`，否则桌面产物会是旧界面。**
 - `web/electron/node_modules/` 与 `web/electron/release/` 均为依赖/构建产物，不入库。
 

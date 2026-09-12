@@ -18,6 +18,7 @@ npm run dist          # electron-builder → nsis(x64) + zip，输出至 release
 npm start             # 开发运行（加载 ../build）
 ```
 
-- Electron 二进制经 `electronDownload.mirror`（npmmirror）下载，打包需联网。
+- `dist` 走 `dist.cjs` 入口，自动注入国内镜像（`ELECTRON_MIRROR`、`ELECTRON_BUILDER_BINARIES_MIRROR`，均指向 npmmirror），规避 GitHub 下载超时；已设置同名环境变量时以环境变量为准。需要在干净机器/异地重新打包时同样使用 `npm run dist`。
+- Electron 二进制经 `electronDownload.mirror`（npmmirror）下载，打包需联网；NSIS / winCodeSign 等二进制同样经由上面两个镜像下载。
 - `node_modules/` 与 `release/` 均为可再生物，不入库。
 - 修改根目录前端源码后，先同步 `web/build` 再打包，否则桌面产物界面会停留在旧版本。
