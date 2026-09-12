@@ -114,7 +114,7 @@ const I18N = {
     dragSort: '拖动排序', defaultBadge: '默认',
   },
 en: {
-    secTab: 'Seconds', msTab: 'Milliseconds', usTab: 'Microseconds', nsTab: 'Nanoseconds',
+    secTab: 'Sec', msTab: 'Ms', usTab: 'μs', nsTab: 'ns',
     tzLabel: 'Timezone', toggleEn: '中',
     dateToTs: 'Date → Timestamp', tsToDate: 'Timestamp → Date',
     tsOutput: 'Timestamp', dateOutput: 'Date',
