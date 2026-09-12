@@ -63,11 +63,13 @@
 ```bash
 cd web/electron
 npm ci                 # 按 package-lock.json 复现依赖
-npm run dist           # 产出 web/electron/release/ 下的安装包与 zip
+npm run dist           # 当前主机平台打包（win nsis+zip / linux AppImage+deb / mac dmg+zip）
+npm run dist:win       # 仅 Windows；npm run dist:linux / npm run dist:mac 同理
 ```
 
-- 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（nsis + zip、中文安装向导、Electron 44.3.0、npmmirror 镜像）。
-- `dist` 入口 `dist.cjs` 自动注入国内镜像环境变量（NSIS / winCodeSign / Electron 二进制均走 npmmirror），**在无法访问 GitHub 的网络下也能打包**；如遇 `connect ETIMEDOUT 20.205.243.166:443` 之类错误，确认无代理后重试即可。
+- 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（win nsis + zip、linux AppImage + deb、mac dmg + zip，Electron 44.3.0、npmmirror 镜像）。
+- `dist` 入口 `dist.cjs`（纯 Node，跨平台）自动注入国内镜像环境变量（NSIS / winCodeSign / Electron 二进制均走 npmmirror），**在无法访问 GitHub 的网络下也能打包**；如遇 `connect ETIMEDOUT 20.205.243.166:443` 之类错误，确认无代理后重试即可。
+- 平台限制：**macOS 产物只能在 macOS 上打包**；Linux AppImage/deb 建议在 Linux 上打包（Windows 只能出 dir）；Windows nsis 在 Linux/macOS 主机需 wine。已在 Windows 主机实测成功拉取 Linux 版 Electron 并产出未打包目录。
 - `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，打包前需同步 `web/build`，否则桌面产物会是旧界面。**
 - `web/electron/node_modules/` 与 `web/electron/release/` 均为依赖/构建产物，不入库。
 

@@ -7,7 +7,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "node dist.cjs"
+    "dist": "node dist.cjs",
+    "dist:win": "node dist.cjs --win",
+    "dist:linux": "node dist.cjs --linux",
+    "dist:mac": "node dist.cjs --mac"
   },
   "devDependencies": {
     "electron": "44.3.0",
@@ -40,6 +43,20 @@
         },
         "zip"
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities"
     },
     "nsis": {
       "oneClick": false,
