@@ -54,9 +54,7 @@ function renderConvert() {
   const msVal = String(ms);
   const us = (sel.us || 0) % 1000;
   const ns = (sel.ns || 0) % 1000;
-  const msInt = Math.floor(ms);
-  const usVal = (BigInt(msInt) * 1000n + BigInt(us)).toString();
-  const nsVal = (BigInt(msInt) * 1000000n + BigInt(us) * 1000n + BigInt(ns)).toString();
+  const { usVal, nsVal } = epochSubFromMs(ms, us, ns);
   
   let text, value;
   if (isSec) {
@@ -170,6 +168,40 @@ function currentT2dMs() {
     return Number(bigFloorDiv(n, 1000000n));
   }
   return Number(n);
+}
+
+// D2T 卡片当前显示的纪元毫秒，与 renderConvert 使用同一条计算路径。
+// 分栏模式（日期/时间/小数）下 ms 字段只是亚秒毫秒，须经 dateToMs 还原完整瞬间。
+function currentD2tMs() {
+  const sel = readDateSelection();
+  if (!sel || sel.empty || sel.err) return null;
+  if (sel.kind === 'abs') return sel.ms;
+  const ms = dateToMs(sel, inputTzEl.value);
+  return validate(ms) ? ms : null;
+}
+
+// 解析结果 → 芯片瞬间（纯函数，便于单测）。返回 null 表示无有效瞬间。
+function chipInstantFromSel(sel, tz) {
+  if (!sel || sel.empty || sel.err) return null;
+  if (sel.kind === 'abs' && typeof sel.ms === 'number') return new Date(sel.ms);
+  if (typeof sel.y === 'number') {
+    const ms = dateToMs(sel, tz);
+    return validate(ms) ? new Date(ms) : null;
+  }
+  return null;
+}
+
+// 从纪元毫秒与输入的三段亚秒数字重建精确的微秒/纳秒整数串。
+// ms 为整数纪元毫秒（低三位即毫秒分量）；负数亦精确（如 -544ms ＝ -1000+456，
+// -544000 µs + 789 µs ＝ -543211 µs 与真实时刻一致），见 dev/tests/chip.test.mjs。
+function epochSubFromMs(ms, us, ns) {
+  const m = BigInt(ms);
+  const u = BigInt((us || 0) % 1000);
+  const n = BigInt((ns || 0) % 1000);
+  return {
+    usVal: (m * 1000n + u).toString(),
+    nsVal: (m * 1000000n + u * 1000n + n).toString(),
+  };
 }
 
 function renderT2dPopover() {

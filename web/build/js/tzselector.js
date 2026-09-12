@@ -124,8 +124,8 @@ function initCustomTzSelector() {
 function chipInstant(kind) {
   if (kind === "d2t") {
     try {
-      const sel = readDateSelection();
-      if (!sel.empty && !sel.err && typeof sel.ms === "number") return new Date(sel.ms);
+      const d = chipInstantFromSel(readDateSelection(), inputTzEl.value);
+      if (d) return d;
     } catch (e) {}
   } else if (kind === "t2d") {
     try {
