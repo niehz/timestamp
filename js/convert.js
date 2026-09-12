@@ -153,26 +153,33 @@ function htmlEscape(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function currentT2dMs() {
-  const v = t2dVal.dataset.value;
+function msFromCardValue(v, tab) {
   if (v === '' || v === undefined) return null;
   if (!/^-?\d+$/.test(v)) return null;
   const n = BigInt(v);
-  if (currentTab === 'sec') {
+  if (tab === 'sec') {
     return Number(n * 1000n);
-  } else if (currentTab === 'ms') {
+  } else if (tab === 'ms') {
     return Number(n);
-  } else if (currentTab === 'us') {
+  } else if (tab === 'us') {
     return Number(bigFloorDiv(n, 1000n));
-  } else if (currentTab === 'ns') {
+  } else if (tab === 'ns') {
     return Number(bigFloorDiv(n, 1000000n));
   }
   return Number(n);
 }
 
+function currentT2dMs() {
+  return msFromCardValue(t2dVal.dataset.value, currentTab);
+}
+
 // D2T 卡片当前显示的纪元毫秒，与 renderConvert 使用同一条计算路径。
-// 分栏模式（日期/时间/小数）下 ms 字段只是亚秒毫秒，须经 dateToMs 还原完整瞬间。
+// 优先读卡片显示值（秒/毫秒/微秒/纳秒按各自单位换算，保证芯片≡卡片）；
+// 卡片为空时回退到解析输入。分栏模式（日期/时间/小数）下 ms 字段只是
+// 亚秒毫秒，须经 dateToMs 还原完整瞬间。
 function currentD2tMs() {
+  const fromCard = msFromCardValue(d2tVal.dataset.value, currentTab);
+  if (fromCard !== null) return fromCard;
   const sel = readDateSelection();
   if (!sel || sel.empty || sel.err) return null;
   if (sel.kind === 'abs') return sel.ms;

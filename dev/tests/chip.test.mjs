@@ -35,6 +35,20 @@ test('chipInstantFromSel: empty/err/null inputs fall back to a null instant', ()
   assert.equal(expr('chipInstantFromSel(null, "UTC")'), null);
 });
 
+test('msFromCardValue: per-tab unit conversion matches the card display', () => {
+  const { call } = createFresh();
+  assert.equal(call('msFromCardValue', '0', 'sec'), 0);
+  assert.equal(call('msFromCardValue', '1767225600', 'sec'), 1767225600000);
+  assert.equal(call('msFromCardValue', '1767225600123', 'ms'), 1767225600123);
+  assert.equal(call('msFromCardValue', '1767225600123456', 'us'), 1767225600123);
+  assert.equal(call('msFromCardValue', '1767225600123456789', 'ns'), 1767225600123);
+  assert.equal(call('msFromCardValue', '-543211', 'us'), -544);
+  assert.equal(call('msFromCardValue', '-544000000000', 'ns'), -544000);
+  assert.equal(call('msFromCardValue', '', 'sec'), null);
+  assert.equal(call('msFromCardValue', null, 'sec'), null);
+  assert.equal(call('msFromCardValue', '12.5', 'sec'), null);
+});
+
 test('epochSubFromMs: positive and negative epochs rebuild exact us/ns digits', () => {
   const { call } = createFresh();
   assert.deepEqual(call('epochSubFromMs', 1741496, 789, 12), {
