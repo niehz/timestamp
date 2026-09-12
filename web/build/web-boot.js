@@ -1,5 +1,7 @@
 // web/web-boot.js — Web 模式入口：解析 ?payload= 复用 uTools 同款人口解析逻辑
-// Electron 模式：注入全局快捷键设置区块、录制快捷键、监听托盘/快捷键呼出聚焦输入框、同步壳语言
+// Electron 模式：注入全局快捷键设置区块、录制快捷键、监听托盘/快捷键呼出聚焦输入框、同步壳语言。
+// 注意：本文件当前并未被 index.html 加载（脚本列表见 index.html 末尾）。壳相关逻辑已并入
+// js/events.js 底部（window.tsShell 守卫，uTools 环境自动跳过）。此处仅保留供参考 / 未来 web 独立部署。
 (function () {
   var params = new URLSearchParams(location.search);
   var payload = params.get('payload');

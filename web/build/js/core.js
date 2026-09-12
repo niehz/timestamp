@@ -491,13 +491,13 @@ function renderCustomTzList() {
       return `<div class="custom-tz-item editing" data-value="${z.value}">
         <div class="custom-tz-edit-form">
           <div class="custom-tz-form-row">
-            <input type="text" class="edit-cn" value="${escapeAttr(z.label)}" placeholder="中文名">
+            <input type="text" class="edit-cn" value="${escapeAttr(z.label)}" placeholder="${t('customTzCnPh')}">
             <input type="text" class="edit-en" value="${escapeAttr(z.labelEn)}" placeholder="English">
-            <input type="text" class="edit-offset" value="${escapeAttr(offsetInputFromValue(z.value))}" placeholder="偏移（如 +08:00）">
+            <input type="text" class="edit-offset" value="${escapeAttr(offsetInputFromValue(z.value))}" placeholder="${t('customTzOffsetPh')}">
           </div>
           <div class="custom-tz-form-row optional-row">
-            <input type="text" class="edit-abbr" value="${escapeAttr(aliasVal)}" placeholder="别名（可选）">
-            <input type="text" class="edit-iana" value="${escapeAttr(z.iana || '')}" placeholder="真实时区（可选，自动跟随夏令时）">
+            <input type="text" class="edit-abbr" value="${escapeAttr(aliasVal)}" placeholder="${t('customTzAbbrPh')}">
+            <input type="text" class="edit-iana" value="${escapeAttr(z.iana || '')}" placeholder="${t('customTzIanaPh')}">
             <button class="custom-tz-save">${lang === 'zh' ? '保存' : 'Save'}</button>
             <button class="custom-tz-cancel">${lang === 'zh' ? '取消' : 'Cancel'}</button>
           </div>

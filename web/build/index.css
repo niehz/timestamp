@@ -452,3 +452,6 @@ body.tab-ns .cal-right{min-width:220px}
 .csb-abs .csb-thumb{position:absolute;left:0;right:0;top:0;border-radius:3px;background:var(--border);cursor:pointer;pointer-events:auto;min-height:20px}
 .csb-abs .csb-thumb:hover{background:var(--scrollbar-hover)}
 .csb-abs.show{opacity:1}
+.hotkey-row input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;transition:border-color .15s}
+#hotkey-input.recording{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.hotkey-opt{display:inline-flex;align-items:center;gap:6px;color:var(--dim);cursor:pointer;white-space:nowrap}

@@ -552,11 +552,11 @@ function renderDateFormatList() {
   const disabledShown = shown.filter(f => !DATE_FMT_ENABLED.has(f));
   let html = '';
   if (enabledShown.length) {
-    if (query && disabledShown.length) html += `<div class="fmt-group-hdr">已选中</div>`;
+    if (query && disabledShown.length) html += `<div class="fmt-group-hdr">${t('fmtSelected')}</div>`;
     html += enabledShown.map(fmt => fmtRow(fmt, def)).join('');
   }
   if (disabledShown.length) {
-    if (enabledShown.length) html += `<div class="fmt-group-hdr">未选中</div>`;
+    if (enabledShown.length) html += `<div class="fmt-group-hdr">${t('fmtUnselected')}</div>`;
     html += disabledShown.map(fmt => fmtRow(fmt, def)).join('');
   }
   el.innerHTML = html || `<div class="empty-tip">${t('noMatch')}</div>`;
@@ -575,8 +575,8 @@ function renderCustomFmtList() {
       return `<div class="custom-tz-item editing" data-index="${idx}">
         <div class="custom-fmt-edit-form">
           <div class="custom-tz-form-row">
-            <input type="text" class="edit-label" value="${escapeAttr(c.label)}" placeholder="别名">
-            <input type="text" class="edit-fmt" value="${escapeAttr(c.fmt)}" placeholder="格式串">
+            <input type="text" class="edit-label" value="${escapeAttr(c.label)}" placeholder="${t('customFmtLabelPh')}">
+            <input type="text" class="edit-fmt" value="${escapeAttr(c.fmt)}" placeholder="${t('customFmtInputPh')}">
           </div>
           <div class="custom-tz-form-row">
             <button class="custom-fmt-save">${lang === 'zh' ? '保存' : 'Save'}</button>
@@ -658,9 +658,9 @@ function fmtRow(fmt, def) {
   const custom = DATE_FMT_CUSTOM.some(c => c.fmt === fmt);
   const alias = htmlEscape(fmtAlias(fmt));
   return `<div class="timezone-item ${enabled ? 'selected' : ''}" data-fmt="${htmlEscape(fmt)}">
-    <span class="fmt-drag" title="拖动排序">☰</span>
+    <span class="fmt-drag" title="${t('dragSort')}">☰</span>
     <div class="timezone-info">
-      <div class="timezone-name">${isDefault ? '<span class="fmt-def-badge">默认</span> ' : ''}${alias}</div>
+      <div class="timezone-name">${isDefault ? `<span class="fmt-def-badge">${t('defaultBadge')}</span> ` : ''}${alias}</div>
       <div class="timezone-offset"><span class="timezone-value">${htmlEscape(fmt)}</span></div>
     </div>
     <div class="fmt-actions"><span class="tz-check">${enabled ? '✓' : ''}</span></div>

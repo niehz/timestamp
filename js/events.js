@@ -449,3 +449,104 @@ setTimeout(() => {
 
 // 每50ms更新一次，实现更流畅的毫秒滚动效果
 setInterval(updateNow, 50);
+
+// —— 桌面壳 (tsShell) 扩展：快捷键设置区块 / 语言双向联动 / 呼出聚焦 ——
+// uTools 环境无 tsShell 整块跳过；依赖 applyLang/setAppLang/t/toast/tsInput/initTimestampInput
+if (window.tsShell) {
+  const paneEl = document.getElementById('pane-sys');
+  if (paneEl && !document.getElementById('sys-hotkey')) {
+    const h = document.createElement('div');
+    h.className = 'config-section';
+    h.id = 'sys-hotkey';
+    h.style.display = 'none';
+    h.innerHTML =
+      '<h4 data-i18n="hotkey">全局快捷键</h4>' +
+      '<p class="config-desc" data-i18n="hotkeyDesc">设置呼出主窗口的全局快捷键，支持任意组合。</p>' +
+      '<div class="hotkey-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+      '<input type="text" id="hotkey-input" readonly placeholder="Ctrl+Alt+T" autocomplete="off" spellcheck="false">' +
+      '<label class="hotkey-opt" style="white-space:nowrap;"><input type="checkbox" id="hotkey-enabled"><span data-i18n="hotkeyEnabled"></span></label>' +
+      '<button type="button" class="btn-secondary" id="hotkey-reset" data-i18n="hotkeyReset"></button>' +
+      '</div>';
+    paneEl.insertBefore(h, paneEl.firstChild);
+  }
+
+  const sysHotkey = document.getElementById('sys-hotkey');
+  const hotkeyInput = document.getElementById('hotkey-input');
+  const hotkeyToggle = document.getElementById('hotkey-enabled');
+  const hotkeyReset = document.getElementById('hotkey-reset');
+  if (sysHotkey) sysHotkey.style.display = '';
+
+  if (hotkeyInput && hotkeyToggle && hotkeyReset) {
+    const accelDisplay = (acc) => String(acc).replace(/CommandOrControl/g, 'Ctrl').replace(/CmdOrCtrl/g, 'Ctrl');
+    const accelFromEvent = (e) => {
+      const parts = [];
+      if (e.ctrlKey) parts.push('Ctrl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      let key = e.key;
+      if (/^[a-zA-Z]$/.test(key)) key = key.toUpperCase();
+      else if (/^[0-9]$/.test(key) || /^F\d{1,2}$/.test(key)) { /* keep */ }
+      else if (key === ' ') key = 'Space';
+      else return null;
+      if (parts.length === 0) return null;
+      parts.push(key);
+      return parts.join('+');
+    };
+    const setHotkeyDisplay = (s) => {
+      hotkeyInput.value = s.hotkeyEnabled ? accelDisplay(s.hotkey) : t('hotkeyDisabled');
+      hotkeyToggle.checked = !!s.hotkeyEnabled;
+    };
+    let recording = false;
+    hotkeyInput.addEventListener('focus', () => {
+      recording = true;
+      hotkeyInput.classList.add('recording');
+      hotkeyInput.value = t('hotkeyRecord');
+    });
+    hotkeyInput.addEventListener('keydown', (e) => {
+      if (!recording) return;
+      e.preventDefault();
+      if (e.key === 'Escape') { hotkeyInput.blur(); return; }
+      const accel = accelFromEvent(e);
+      if (!accel) { toast(t('hotkeyNoModifier')); return; }
+      hotkeyInput.blur();
+      window.tsShell.setSettings({ hotkey: accel }).then((r) => {
+        if (r && r.ok) {
+          if (r.settings) setHotkeyDisplay(r.settings);
+          toast(t('hotkeySaved'));
+        } else {
+          toast(t('hotkeyConflict'));
+          window.tsShell.getSettings().then(setHotkeyDisplay).catch(() => {});
+        }
+      }).catch(() => {});
+    });
+    hotkeyInput.addEventListener('blur', () => {
+      recording = false;
+      hotkeyInput.classList.remove('recording');
+      window.tsShell.getSettings().then(setHotkeyDisplay).catch(() => {});
+    });
+    hotkeyToggle.addEventListener('change', () => {
+      window.tsShell.setSettings({ hotkeyEnabled: hotkeyToggle.checked }).then((r) => {
+        if (r && r.ok && r.settings) setHotkeyDisplay(r.settings);
+        else { hotkeyToggle.checked = !hotkeyToggle.checked; toast(t('hotkeyConflict')); }
+      }).catch(() => {});
+    });
+    hotkeyReset.addEventListener('click', () => {
+      window.tsShell.setSettings({ hotkey: 'Ctrl+Alt+T' }).then((r) => {
+        if (r && r.ok && r.settings) { setHotkeyDisplay(r.settings); toast(t('hotkeySaved')); }
+        else toast(t('hotkeyConflict'));
+      }).catch(() => {});
+    });
+    window.tsShell.getSettings().then(setHotkeyDisplay).catch(() => {});
+    window.tsShell.onSettingsChanged(setHotkeyDisplay);
+  }
+
+  // 启动即采用壳的界面语言；菜单切换语言时同步前端
+  window.tsShell.getSettings().then((s) => {
+    if (s && s.uiLang) setAppLang(s.uiLang === 'en' ? 'en' : 'zh');
+    applyLang();
+  }).catch(() => {});
+  window.tsShell.onUiLangChanged((l) => { setAppLang(l === 'en' ? 'en' : 'zh'); });
+  window.tsShell.onSummon(() => {
+    if (typeof initTimestampInput === 'function' && tsInput) { initTimestampInput(); tsInput.focus(); }
+  });
+}

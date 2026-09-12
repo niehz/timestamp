@@ -11,19 +11,19 @@
     <header class="header">
       <div class="tabs">
         <button class="tab active" data-tab="sec">
-          <span class="tab-text">秒级</span>
+          <span class="tab-text" data-i18n="secTab">秒级</span>
           <span class="precision-indicator"></span>
         </button>
         <button class="tab" data-tab="ms">
-          <span class="tab-text">毫秒级</span>
+          <span class="tab-text" data-i18n="msTab">毫秒级</span>
           <span class="precision-indicator"></span>
         </button>
         <button class="tab" data-tab="us">
-          <span class="tab-text">微秒级</span>
+          <span class="tab-text" data-i18n="usTab">微秒级</span>
           <span class="precision-indicator"></span>
         </button>
         <button class="tab" data-tab="ns">
-          <span class="tab-text">纳秒级</span>
+          <span class="tab-text" data-i18n="nsTab">纳秒级</span>
           <span class="precision-indicator"></span>
         </button>
       </div>
@@ -31,7 +31,7 @@
         <button class="lang-btn" id="btn-lang">EN</button>
         <button class="tz-config-btn" id="tz-config-btn" title="配置时区" data-i18n-title="tzConfigTitle">⚙️</button>
         <div class="tz-group">
-          <label for="timezone">时区</label>
+          <label for="timezone" data-i18n="tzLabel">时区</label>
           <select id="timezone"></select>
         </div>
       </div>
@@ -57,7 +57,7 @@
                   <div class="cal-popover" id="calendar">
                   <div class="cal-main">
                     <div class="cal-left">
-                       <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进">
+                       <input id="cal-year-input" class="cal-year-input" type="text" spellcheck="false" autocomplete="off" placeholder="输入 年份 / 年月日，如 2025-08-31，实时跟进" data-i18n-ph="calYearPh">
                       <div class="cal-head">
                         <button class="cal-nav" id="cal-prev" title="上一年" data-i18n-title="calPrevTitle">◀</button>
                         <button class="cal-title-btn" id="cal-title" title="点击切换 年月" data-i18n-title="calTitleToggle">2026年 8月</button>
@@ -227,13 +227,13 @@
             <p class="config-desc" data-i18n="customTzDesc">添加自定义时区，支持中文名、英文名和UTC偏移量（-12 到 +14）</p>
             <div class="custom-tz-form">
               <div class="custom-tz-form-row">
-                <input type="text" id="custom-tz-cn" placeholder="中文名（如 纽约）">
+                <input type="text" id="custom-tz-cn" placeholder="中文名（如 纽约）" data-i18n-ph="customTzCnPh">
                 <input type="text" id="custom-tz-en" placeholder="English name (e.g. New York)">
-                <input type="text" id="custom-tz-offset" placeholder="偏移（如 +08:00 / +8 / 8）">
+                <input type="text" id="custom-tz-offset" placeholder="偏移（如 +08:00 / +8 / 8）" data-i18n-ph="customTzOffsetPh">
               </div>
               <div class="custom-tz-form-row optional-row">
-                <input type="text" id="custom-tz-abbr" placeholder="别名（可选，如 SJZ）">
-                <input type="text" id="custom-tz-iana" placeholder="真实时区（可选，如 America/New_York，自动跟随夏令时）">
+                <input type="text" id="custom-tz-abbr" placeholder="别名（可选，如 SJZ）" data-i18n-ph="customTzAbbrPh">
+                <input type="text" id="custom-tz-iana" placeholder="真实时区（可选，如 America/New_York，自动跟随夏令时）" data-i18n-ph="customTzIanaPh">
                 <button class="btn-primary" id="custom-tz-add" data-i18n="add">添加</button>
               </div>
             </div>
@@ -247,7 +247,7 @@
           <p class="config-desc" data-i18n="dateFormatDesc">勾选要在悬停列表显示的格式，支持添加自定义格式</p>
           <div class="config-section">
             <div class="timezone-search">
-              <input type="text" id="date-fmt-search" placeholder="搜索格式（别名/格式串）...">
+              <input type="text" id="date-fmt-search" placeholder="搜索格式（别名/格式串）..." data-i18n-ph="dateFmtSearchPh">
               <div class="timezone-actions">
                 <button class="btn-secondary" id="reset-fmt-config" data-i18n="resetFormats">重置格式</button>
               </div>
@@ -261,8 +261,8 @@
             <p class="config-desc" data-i18n="builtinFormatsDesc">别名可增强搜索，格式串使用占位符：YYYY年 MM月 DD日 HH 24小时・hh 12小时 mm分 ss秒 SSS毫秒 A AM・PM W 星期</p>
             <div class="custom-tz-form">
               <div class="custom-tz-form-row">
-                <input type="text" id="custom-fmt-label" placeholder="别名（如 我的格式）">
-                <input type="text" id="custom-fmt-input" placeholder="格式串，如 YYYY年MM月DD日 HH:mm:ss">
+                <input type="text" id="custom-fmt-label" placeholder="别名（如 我的格式）" data-i18n-ph="customFmtLabelPh">
+                <input type="text" id="custom-fmt-input" placeholder="格式串，如 YYYY年MM月DD日 HH:mm:ss" data-i18n-ph="customFmtInputPh">
                 <button class="btn-primary" id="custom-fmt-add" data-i18n="add">添加</button>
               </div>
             </div>
@@ -276,7 +276,7 @@
           <p class="config-desc" data-i18n="dateParseDesc">勾选要启用的日期解析格式，无关键字时自动识别日期字符串</p>
           <div class="config-section">
             <div class="timezone-search">
-              <input type="text" id="date-parse-search" placeholder="搜索格式...">
+              <input type="text" id="date-parse-search" placeholder="搜索格式..." data-i18n-ph="dateParseSearchPlaceholder">
               <div class="timezone-actions">
                 <button class="btn-secondary" id="reset-parse-config" data-i18n="resetParse">重置解析</button>
               </div>
@@ -291,8 +291,8 @@
             <p class="config-desc" data-i18n="customParseDesc"></p>
             <div class="custom-tz-form">
               <div class="custom-tz-form-row">
-                <input type="text" id="custom-parse-label" placeholder="名称（可选）">
-                <input type="text" id="custom-parse-input" data-type="placeholder" placeholder="占位符格式或正则">
+                <input type="text" id="custom-parse-label" placeholder="名称（可选）" data-i18n-ph="customParseLabelPh">
+                <input type="text" id="custom-parse-input" data-type="placeholder" placeholder="占位符格式或正则" data-i18n-ph="customParseInputPh">
               </div>
               <div class="custom-tz-form-row">
                 <span class="custom-parse-type-label" data-i18n="customParseType"></span>
@@ -395,7 +395,7 @@
     <div class="tz-ov-offset-group">
       <label for="tz-ov-select" data-i18n="customOffset">自定义偏移</label>
       <select id="tz-ov-select">
-        <option value="">选择常见时区</option>
+        <option value="" data-i18n="chooseCommonTz">选择常见时区</option>
         <option value="-12:00">UTC-12:00</option>
         <option value="-11:00">UTC-11:00</option>
         <option value="-10:00">UTC-10:00</option>
