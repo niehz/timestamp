@@ -204,6 +204,20 @@ let tzOvActiveIdx = -1;
   });
 });
 
+// 当前时间卡片：整行标题点击也打开时区弹层（暂停按钮独立点按，芯片自身不重复触发）
+const nowOffsetEl = document.getElementById('now-offset');
+const nowCardTitle = nowOffsetEl && nowOffsetEl.closest('.card-title');
+const nowCard = nowOffsetEl && nowOffsetEl.closest('.card');
+if (nowCard) nowCard.classList.add('now-card');
+const pauseBtn = document.getElementById('btn-pause');
+if (pauseBtn) pauseBtn.addEventListener('click', (e) => e.stopPropagation());
+if (nowCardTitle) {
+  nowCardTitle.addEventListener('click', (e) => {
+    if (e.target.closest('#btn-pause') || e.target.closest('.card-offset')) return;
+    openTzOverlay(nowOffsetEl);
+  });
+}
+
 function tzOvResultRow(v) {
   const cur = activeTz().replace(/^FIXED:/, '');
   const highClass = v === cur ? ' active' : '';
@@ -293,20 +307,6 @@ function openTzOverlay(anchorEl) {
   const topMax = window.innerHeight - h - 8;
   if (parseFloat(tzOverlay.style.top) > topMax) tzOverlay.style.top = Math.max(8, topMax) + 'px';
   
-  // 定位 IANA 下拉列表：相对于时区配置弹层的输入框下方
-  const ianaAcEl = document.querySelector('.iana-ac');
-  if (ianaAcEl) {
-    const overlayRect = tzOverlay.getBoundingClientRect();
-    const inputRect = tzOvOffsetEl.getBoundingClientRect();
-    // 在弹层内部，输入框下方显示 IANA 列表
-    ianaAcEl.style.left = `${inputRect.left - overlayRect.left + inputRect.width}px`;
-    ianaAcEl.style.top = `${inputRect.top - overlayRect.top + inputRect.height + 4}px`;
-    ianaAcEl.style.display = 'block';
-    ianaAcEl.style.maxHeight = `calc(${window.innerHeight - inputRect.top - 8}px)`;
-    // 使用 core.js 的 positionIanaAc 确保定位正确（支持 containerRect 参数）
-    positionIanaAc(tzOvOffsetEl, overlayRect);
-  }
-  
   document.addEventListener('mousedown', tzOvOutside);
   tzOvSearchEl.focus();
 }
@@ -342,8 +342,6 @@ tzOvSearchEl.addEventListener('keydown', (e) => {
     const cls = classifyIanaInput(raw);
     if (cls.kind === 'canonical' || cls.kind === 'resolvable') applyOverride(cls.value);
     else if (raw) renderTzOvResults(raw);
-  } else if (e.key === 'Escape') {
-    closeTzOverlay();
   }
 });
 
@@ -370,8 +368,6 @@ tzOvOffsetEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     commitTzOvOffset();
-  } else if (e.key === 'Escape') {
-    closeTzOverlay();
   }
 });
 const tzOvApplyEl = document.getElementById('tz-ov-apply');

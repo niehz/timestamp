@@ -22,18 +22,84 @@ timezoneEl.addEventListener('change', () => {
   updateNow(); 
   renderCalendar(); 
 });
+// —— 输入清洗：时间戳仅允许数字与开头负号；日期/时间剥离千分位逗号等粘贴噪音 ——
+function insertSanitized(el, value) {
+  const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+  const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+  el.value = el.value.slice(0, start) + value + el.value.slice(end);
+  const pos = start + value.length;
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function bindPasteFilter(el, clean) {
+  el.addEventListener('paste', (e) => {
+    const text = e.clipboardData && e.clipboardData.getData('text');
+    if (!text) return;
+    const cleaned = clean(text);
+    if (cleaned !== text) {
+      e.preventDefault();
+      insertSanitized(el, cleaned);
+    }
+  });
+}
+function bindInputFilter(el, clean) {
+  el.addEventListener('input', () => {
+    const cleaned = clean(el.value);
+    if (cleaned === el.value) return;
+    const pos = Math.min(el.selectionStart ?? el.value.length, cleaned.length);
+    el.value = cleaned;
+    try { el.setSelectionRange(pos, pos); } catch (e) {}
+  });
+}
+bindPasteFilter(dateInput, stripSeparators);
+bindInputFilter(dateInput, stripSeparators);
+bindPasteFilter(timeInputEl, stripSeparators);
+bindInputFilter(timeInputEl, stripSeparators);
+bindPasteFilter(calTimeInputEl, stripSeparators);
+bindInputFilter(calTimeInputEl, stripSeparators);
+bindPasteFilter(calYearInputEl, stripSeparators);
+bindInputFilter(calYearInputEl, stripSeparators);
+bindPasteFilter(tsInput, stripTsNoise);
+bindInputFilter(tsInput, stripTsNoise);
+tsInput.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key.length !== 1) return;
+  if (e.key === '-') {
+    const v = tsInput.value;
+    const sel = e.target.selectionStart != null ? e.target.selectionStart : 0;
+    if (!(sel === 0 && (!v.startsWith('-') || v.charAt(0) === '-'))) e.preventDefault();
+    return;
+  }
+  if (!/\d/.test(e.key)) e.preventDefault();
+});
 dateInput.addEventListener('input', () => { renderConvert(); showSuggestions(); syncClearBtns(); });
 dateInput.addEventListener('focus', () => { calendarEl.classList.remove('open'); showSuggestions(); });
 dateInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { renderConvert(); hideSuggestions(); calendarEl.classList.remove('open'); }
-  if (e.key === 'Escape') { hideSuggestions(); calendarEl.classList.remove('open'); if (window.utools) utools.outPlugin(); }
 });
 timeInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
-timeInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 fracInputEl.addEventListener('input', () => { renderConvert(); syncClearBtns(); });
-fracInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
 tsInput.addEventListener('input', () => { renderReverse(); syncClearBtns(); });
-tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); if (e.key === 'Escape' && window.utools) utools.outPlugin(); });
+tsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderReverse(); });
+
+// 全局 ESC 分发（捕获阶段，最内层优先逐级回退；主页无弹层时才退出 uTools）
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (dateParseSearchEl && e.target === dateParseSearchEl && dateParseSearchEl.value.trim()) return; // 日期解析搜索框：先清空，再 ESC 关弹窗
+  const ianaAc = document.querySelector('.iana-ac');
+  if (ianaAc && ianaAc.style.display === 'block') { closeIanaAc(); e.preventDefault(); e.stopPropagation(); return; }
+  if (calendarEl.classList.contains('open')) { closeCalendar(); e.preventDefault(); e.stopPropagation(); return; }
+  if (tzOverlay.classList.contains('open')) { closeTzOverlay(); e.preventDefault(); e.stopPropagation(); return; }
+  const donateModal = document.getElementById('donate-modal');
+  if (donateModal && donateModal.classList.contains('show')) { donateModal.classList.remove('show'); e.preventDefault(); e.stopPropagation(); return; }
+  if (tzConfigModal.classList.contains('show')) { tzConfigModal.classList.remove('show'); e.preventDefault(); e.stopPropagation(); return; }
+  if (dateSuggestEl.classList.contains('open')) { hideSuggestions(); e.preventDefault(); e.stopPropagation(); return; }
+  const ae = document.activeElement;
+  if (!(ae && ae.tagName === 'SELECT')) {
+    if (window.utools) utools.outPlugin();
+  }
+  e.stopPropagation();
+}, true);
 
 $('#btn-calendar').addEventListener('click', () => {
   if (calendarEl.classList.contains('open')) closeCalendar();
@@ -48,11 +114,10 @@ $('#cal-title').addEventListener('click', (e) => {
   else { calView = 'day'; renderCalendar(); }
 });
 $('#cal-year-input').addEventListener('input', followYearInput);
-$('#cal-year-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); jumpToYearInput(); } if (e.key === 'Escape') closeCalendar(); });
+$('#cal-year-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); jumpToYearInput(); } });
 $('#cal-year-input').addEventListener('focus', () => calYearInputEl.classList.remove('err-jump'));
 calTimeInputEl.addEventListener('input', followTimeInput);
 calTimeInputEl.addEventListener('focus', syncTimeInput);
-calTimeInputEl.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCalendar(); });
 calendarEl.addEventListener('click', (e) => {
   const z = e.target.closest('.wheel-zero');
   if (!z) return;

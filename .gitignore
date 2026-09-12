@@ -1,3 +1,16 @@
 .idea/
 *.log
 .DS_Store
+
+# 本地构建/打包产物（含 node_modules），不入库
+web/
+
+# 临时实验文档与测试页，不入库
+FINAL-FIX.md
+FIX-SUMMARY*.md
+IANA-FIX*.md
+PLAN-*.md
+REVIEW.md
+TEST-GUIDE.md
+test-*.html
+js/timezone/

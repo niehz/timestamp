@@ -46,8 +46,8 @@ function formatTz(date, tz) {
   // 正常路径：Intl 精确到秒（含 LMT 秒分量，如 Asia/Shanghai 的 +08:05:43）
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
-    const year = m.era === 'BC' ? '-' + m.year : m.year;
-    return `${year}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
+    const y = new Date(ianaWallMs(date.getTime(), m)).getUTCFullYear();
+    return `${y}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
   } catch (e) { return '--'; }
 }
 
@@ -80,7 +80,8 @@ function tzParts(date, tz) {
   // 正常路径：Intl 精确到秒（含 LMT 秒分量）
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
-    return { y: m.era === 'BC' ? -Number(m.year) : Number(m.year), mo: Number(m.month), d: Number(m.day), h: Number(m.hour) % 24, mi: Number(m.minute), se: Number(m.second), ms: date.getMilliseconds(), wd: WD_INDEX[m.weekday] };
+    const y = new Date(ianaWallMs(date.getTime(), m)).getUTCFullYear();
+    return { y, mo: Number(m.month), d: Number(m.day), h: Number(m.hour) % 24, mi: Number(m.minute), se: Number(m.second), ms: date.getMilliseconds(), wd: WD_INDEX[m.weekday] };
   } catch (e) { return null; }
 }
 
@@ -117,16 +118,31 @@ const DATE_FMT_MAX_ENABLED = 6;
 // 例如：Asia/Shanghai 在 1901 年前的 LMT 为 +08:05:43（485 + 43/60 分钟），
 // 引擎在 year 1200 也能给出 20:05:43 的墙钟时间（已实测验证）。
 
+// 将 Intl 墙钟部件（month/day/hour/minute/second）重建为精确墙钟毫秒。
+// en-GB(gregory) 的 formatToParts 对公元前年份不输出 era（实测天文年 -1199 只给
+// "1200" 且无 BC 标记），因此不再解析 era：取实例 UTC 年的 y-1/y/y+1 三个候选年，
+// 真实偏移恒小于 ±24h，与 baseMs 差约 ±1 年的错误候选必然被最近者排除。
+function ianaWallMs(baseMs, m) {
+  const yy = new Date(baseMs).getUTCFullYear();
+  const mo = Number(m.month) - 1, d = Number(m.day), h = Number(m.hour) % 24, mi = Number(m.minute) || 0, se = Number(m.second) || 0;
+  let best = 0, bd = Infinity;
+  for (const y of [yy - 1, yy, yy + 1]) {
+    const c = Date.UTC(y >= 0 && y < 100 ? y + 1900 : y, mo, d, h, mi, se);
+    const dd = Math.abs(c - baseMs);
+    if (dd < bd) { bd = dd; best = c; }
+  }
+  return best;
+}
+
 // IANA 时区精确偏移（分钟，可为小数以保留 LMT 秒分量）。失败返回 null。
 function ianaOffsetMinutes(date, tz) {
   if (!(date instanceof Date)) date = new Date(date);
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
     if (!m || m.year == null || m.month == null || m.day == null || m.hour == null) return null;
-    const year = m.era === 'BC' ? -Math.abs(Number(m.year)) : Number(m.year);
-    const asUtc = Date.UTC(year, Number(m.month) - 1, Number(m.day), Number(m.hour) % 24, Number(m.minute) || 0, Number(m.second) || 0);
     // 必须向下取整到秒边界：JS 的 % 对负周期截断向零，会使 1970 前的毫秒级时刻上取整到下一秒。
     const baseMs = Math.floor(date.getTime() / 1000) * 1000;
+    const asUtc = ianaWallMs(baseMs, m);
     return (asUtc - baseMs) / 60000;
   } catch (e) { return null; }
 }

@@ -9,6 +9,22 @@
 
 const $ = (s) => document.querySelector(s);
 
+// 输入清洗（纯函数，供测试与 events 接线共用）：
+// 时间戳只保留数字与开头一个负号，剥离复制来源的千分位/空格等噪音。
+function stripTsNoise(raw) {
+  const r = String(raw == null ? '' : raw);
+  const neg = /^\s*-/.test(r);
+  const s = r.replace(/[^\d-]/g, '').replace(/-/g, '');
+  return neg ? '-' + s : s;
+}
+// 日期/时间通用去噪：仅剥离数字间的千分位分隔（, ' NBSP NNBSP）与零宽字符，
+// 其余保留——RFC2822 的 "Thu, 07 Sep"、"7, 2026"（逗号后非数字）不受影响。
+function stripSeparators(raw) {
+  return String(raw == null ? '' : raw)
+    .replace(/[\u200B\u2060\uFEFF]/g, '')
+    .replace(/(\d)[,'\u00A0\u202F](\d)/g, '$1$2');
+}
+
 // 便捷：从别名查找对应时区
 function zonesByAlias(alias) {
   const u = alias.toUpperCase();
@@ -386,14 +402,16 @@ function addCustomTimezone() {
   const r = resolveModernTzInput(iana, offsetStr);
   if (r.error) { toast(r.error); return; }
 
-  // 内置时区自动选中：输入的合法 IANA 是内置时区 → 直接启用加入下拉列表，不创建自定义副本
+  // 内置时区自动启用：输入的合法 IANA 是内置时区 → 直接启用加入下拉列表，不创建自定义副本
   if (r.value === iana && !r.displayOnly && ALL_TIMEZONES.some(z => z.value === iana) && !CUSTOM_TIMEZONES.some(z => z.value === iana)) {
     tzConfigSelected.add(iana);
     clearCustomTzAddForm();
     renderCustomTzList();
     renderTzConfigList();
     commitTzConfig();
-    toast(`${t('tzBuiltinEnabled')}: ${iana}`);
+    if (cn || en || abbrStr) toast(`${t('tzBuiltinNamedWarn')}: ${iana}`);
+    else toast(`${t('tzBuiltinEnabled')}: ${iana}`);
+    highlightTzConfigItem(iana);
     return;
   }
 
@@ -412,6 +430,17 @@ function addCustomTimezone() {
   commitTzConfig();
   if (r.displayOnly) toast(t('tzIanaOnlyWarn'));
   else toast(lang === 'zh' ? '自定义时区已添加' : 'Custom timezone added');
+}
+
+function highlightTzConfigItem(value) {
+  if (!tzConfigListEl) return;
+  const items = tzConfigListEl.querySelectorAll('.timezone-item');
+  let target = null;
+  items.forEach(it => { if (it.dataset.value === value) target = it; });
+  if (!target) return;
+  target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  target.classList.add('tz-blink');
+  setTimeout(() => target.classList.remove('tz-blink'), 1600);
 }
 
 function persistCustomTimezones() {
@@ -581,13 +610,20 @@ function closeIanaAc() {
   ianaAcOnPick = null;
 }
 
-function positionIanaAc(inputEl, containerRect) {
-  const r = containerRect || inputEl.getBoundingClientRect();
+function positionIanaAc(inputEl) {
+  const r = inputEl.getBoundingClientRect();
   const w = ianaAcEl.offsetWidth || 300;
-  ianaAcEl.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
   const h = ianaAcEl.offsetHeight || 260;
+  // 左右：优先对齐左缘，右缘放不下则靠右翻转
+  let left = r.left;
+  if (left + w > window.innerWidth - 8) left = Math.max(8, r.right - w);
+  ianaAcEl.style.left = left + 'px';
+  // 上下：优先放下方，放不下则翻转到输入框上方，保证不遮住输入
   let top = r.bottom + 4;
-  if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+  if (top + h > window.innerHeight - 8) {
+    top = r.top - h - 4;
+    if (top < 8) top = 8;
+  }
   ianaAcEl.style.top = top + 'px';
 }
 
@@ -620,21 +656,30 @@ function attachIanaAutocomplete(inputEl, onPick) {
   inputEl.dataset.ianaAc = '1';
   const ac = ensureIanaAcEl();
 
-  function open() {
-    ac.innerHTML = ianaAcRows(inputEl.value);
-    positionIanaAc(inputEl);
-    ac.style.display = 'block';
-    ianaAcInput = inputEl;
-    ianaAcOnPick = onPick;
+  function bindRows() {
     ac.querySelectorAll('.tz-ov-result[data-value]').forEach(row => {
       row.addEventListener('mousedown', (e) => { e.preventDefault(); pickIanaAc(inputEl, row.dataset.value); });
     });
   }
 
+  function open() {
+    // 配置弹窗里的输入框：先滚到可见区，避免被弹层/遮挡影响定位与可读性
+    if (inputEl.closest('#tz-config-modal')) inputEl.scrollIntoView({ block: 'nearest' });
+    ac.innerHTML = ianaAcRows(inputEl.value);
+    positionIanaAc(inputEl);
+    ac.style.display = 'block';
+    ianaAcInput = inputEl;
+    ianaAcOnPick = onPick;
+    bindRows();
+  }
+
   inputEl.addEventListener('focus', () => { open(); });
   inputEl.addEventListener('input', () => {
-    if (ac.style.display === 'block' && ianaAcInput === inputEl) ac.innerHTML = ianaAcRows(inputEl.value);
-    else open();
+    if (ac.style.display === 'block' && ianaAcInput === inputEl) {
+      ac.innerHTML = ianaAcRows(inputEl.value);
+      bindRows();
+      positionIanaAc(inputEl);
+    } else open();
   });
   inputEl.addEventListener('keydown', (e) => {
     if (e.isComposing || e.keyCode === 229) return;
@@ -657,10 +702,6 @@ function attachIanaAutocomplete(inputEl, onPick) {
       const q = inputEl.value.trim();
       const cls = classifyIanaInput(q);
       if (cls.kind === 'canonical' || cls.kind === 'resolvable') { e.preventDefault(); pickIanaAc(inputEl, cls.value); }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      closeIanaAc();
     }
   });
 }

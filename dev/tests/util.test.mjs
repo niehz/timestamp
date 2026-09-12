@@ -10,6 +10,27 @@ test('pad pads to 2 digits', () => {
   assert.equal(call('pad', 0), '00');
 });
 
+test('stripTsNoise keeps digits and one leading minus only', () => {
+  assert.equal(call('stripTsNoise', '1,754,003,672'), '1754003672');
+  assert.equal(call('stripTsNoise', '1 754 003 672'), '1754003672');
+  assert.equal(call('stripTsNoise', '-1,234'), '-1234');
+  assert.equal(call('stripTsNoise', '--123'), '-123');
+  assert.equal(call('stripTsNoise', 'abc-12x3'), '123');
+  assert.equal(call('stripTsNoise', '2024-...'), '2024');
+  assert.equal(call('stripTsNoise', ''), '');
+  assert.equal(call('stripTsNoise', null), '');
+});
+
+test('stripSeparators removes digit-group noise but keeps RFC2822 commas', () => {
+  assert.equal(call('stripSeparators', '1,234,567'), '1234567');
+  assert.equal(call('stripSeparators', '2026,09,07'), '20260907');
+  assert.equal(call('stripSeparators', 'Thu, 07 Sep 2026 GMT'), 'Thu, 07 Sep 2026 GMT');
+  assert.equal(call('stripSeparators', 'September 7, 2026'), 'September 7, 2026');
+  assert.equal(call('stripSeparators', '2026-09-07 13:49:08'), '2026-09-07 13:49:08');
+  assert.equal(call('stripSeparators', '09/07/2026'), '09/07/2026');
+  assert.equal(call('stripSeparators', '2026\u200B-09-07'), '2026-09-07');
+});
+
 test('bigFloorDiv floors for negative dividends', () => {
   const { expr } = createFresh();
   assert.equal(expr('bigFloorDiv(7n, 2n)'), 3n);
