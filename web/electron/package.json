@@ -10,6 +10,7 @@
     "dist": "node dist.cjs",
     "dist:win": "node dist.cjs --win",
     "dist:linux": "node dist.cjs --linux",
+    "dist:linux:portable": "node dist.cjs --linux zip",
     "dist:mac": "node dist.cjs --mac"
   },
   "devDependencies": {
