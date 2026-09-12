@@ -34,3 +34,20 @@ test('chipInstantFromSel: empty/err/null inputs fall back to a null instant', ()
   assert.equal(expr('chipInstantFromSel({ err: true }, "UTC")'), null);
   assert.equal(expr('chipInstantFromSel(null, "UTC")'), null);
 });
+
+test('epochSubFromMs: positive and negative epochs rebuild exact us/ns digits', () => {
+  const { call } = createFresh();
+  assert.deepEqual(call('epochSubFromMs', 1741496, 789, 12), {
+    usVal: '1741496789',
+    nsVal: '1741496789012',
+  });
+  // -544 ms = -1000 + 456（1969-12-31 23:59:59.456），补 us/ns 后仍精确：
+  assert.deepEqual(call('epochSubFromMs', -544, 789, 12), {
+    usVal: '-543211',
+    nsVal: '-543210988',
+  });
+  assert.deepEqual(call('epochSubFromMs', -544000, null, null), {
+    usVal: '-544000000',
+    nsVal: '-544000000000',
+  });
+});
