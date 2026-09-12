@@ -432,7 +432,7 @@ function calNavigate(dir) {
 }
 
 function validate(ms) {
-  return Number.isFinite(ms) && ms >= MIN_TS && ms <= MAX_TS;
+  return Number.isFinite(ms) && ms >= SAFE_MIN && ms <= SAFE_MAX;
 }
 
 function t(keys) {

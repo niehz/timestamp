@@ -5,6 +5,9 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+// D2T 卡片最近一次计算的候选瞬时（供歧义下拉悬停时重建浮层）。
+let lastD2tCandidates = [];
+
 function setResult(valEl, text, state) {
   valEl.dataset.value = state === 'empty' || state === 'err' ? '' : (valEl.dataset.value || '');
   valEl.setAttribute('aria-result', state || '');
@@ -26,6 +29,8 @@ function renderConvert() {
   const isNs = currentTab === 'ns';
   const sel = readDateSelection();
   d2tVal.dataset.value = '';
+  lastD2tCandidates = [];
+  clearD2tAmbig();
   if (sel.empty) {
     setResult(d2tVal, '', 'empty');
     setHint(hintD2t, '', '');
@@ -47,6 +52,22 @@ function renderConvert() {
   if (!validate(ms)) {
     setResult(d2tVal, t('outOfRange'), 'err');
     setHint(hintD2t, '', '');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
+    return;
+  }
+  // DST 歧义/跳空探测：仅对墙钟输入生效（绝对时刻无歧义）
+  const isWall = sel.kind !== 'abs';
+  let candidates = null;
+  if (isWall) {
+    try { candidates = dateToMsCandidates(sel, inputTzEl.value); } catch (e) { candidates = null; }
+  }
+  lastD2tCandidates = Array.isArray(candidates) ? candidates : [];
+  if (isWall && lastD2tCandidates.length === 0) {
+    // 跳空：该墙钟不存在（夏令时向前）
+    setResult(d2tVal, t('gapNotExist'), 'err');
+    setHint(hintD2t, '', '');
+    setHint(hintD2tResult, t('gapHint'), 'err');
+    renderAmbigPopover();
     if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
@@ -74,6 +95,91 @@ function renderConvert() {
   d2tVal.dataset.value = value;
   setResult(d2tVal, text, 'ok');
   setHint(hintD2t, '', '');
+  if (lastD2tCandidates.length >= 2) {
+    setHint(hintD2tResult, t('ambigHint'), 'ok');
+  } else {
+    setHint(hintD2tResult, '', '');
+  }
+  renderAmbigPopover();
+  if (typeof renderOffsetChips === 'function') renderOffsetChips();
+}
+
+// 清理 D2T 歧义浮层/提示。
+function clearD2tAmbig() {
+  if (d2tAmbigPopoverEl) d2tAmbigPopoverEl.innerHTML = '';
+  if (d2tResultEl) {
+    d2tResultEl.classList.remove('ambig');
+    d2tResultEl.classList.remove('show-ambig');
+  }
+  if (hintD2tResult) setHint(hintD2tResult, '', '');
+}
+
+// 依据 lastD2tCandidates 重建歧义浮层。<2 个候选时隐藏并清理。
+function renderAmbigPopover() {
+  const pop = d2tAmbigPopoverEl;
+  const block = d2tResultEl;
+  if (!pop || !block) return;
+  const cands = lastD2tCandidates;
+  if (!Array.isArray(cands) || cands.length < 2) {
+    pop.innerHTML = '';
+    block.classList.remove('ambig');
+    block.classList.remove('show-ambig');
+    return;
+  }
+  const tz = activeTz();
+  const cur = currentD2tMs();
+  pop.innerHTML = cands.map((c) => {
+    const isCur = cur !== null && c === cur;
+    const tag = c === cands[0] ? t('ambigEarlier') : t('ambigLater');
+    const off = offsetLabel(tz, new Date(c));
+    const utcWall = formatWithTokens(c, 'UTC', DATE_FMT_DEFAULT_CONST);
+    const sub = epochSubFromMs(c, 0, 0);
+    let tsText;
+    if (currentTab === 'sec') tsText = String(Math.floor(c / 1000)) + ' s';
+    else if (currentTab === 'ms') tsText = String(c) + ' ms';
+    else if (currentTab === 'us') tsText = sub.usVal + ' us';
+    else if (currentTab === 'ns') tsText = sub.nsVal + ' ns';
+    else tsText = String(c) + ' ms';
+    return `<div class="d2t-ambig-pop-item${isCur ? ' current' : ''}" data-ms="${c}">
+      <div class="d2t-ambig-pop-fmt">${htmlEscape(tag)} · ${htmlEscape(off)}${isCur ? ' · ' + htmlEscape(t('ambigCurrent')) : ''}</div>
+      <div class="d2t-ambig-pop-val">${htmlEscape(utcWall)} UTC</div>
+      <div class="d2t-ambig-pop-ts">${htmlEscape(tsText)}</div>
+    </div>`;
+  }).join('');
+  block.classList.add('ambig');
+}
+
+// 用户从歧义浮层选中某一候选：按其毫秒重写 D2T 卡片结果（各单位换算）并刷新芯片。
+function selectD2tCandidate(msCand) {
+  const isSec = currentTab === 'sec';
+  const isMs = currentTab === 'ms';
+  const isUs = currentTab === 'us';
+  const isNs = currentTab === 'ns';
+  const sel = readDateSelection();
+  const us = (sel && sel.us) || 0;
+  const ns = (sel && sel.ns) || 0;
+  const secVal = String(Math.floor(msCand / 1000));
+  const msVal = String(msCand);
+  const { usVal, nsVal } = epochSubFromMs(msCand, us % 1000, ns % 1000);
+  let text, value;
+  if (isSec) {
+    text = secVal;
+    value = secVal;
+  } else if (isMs) {
+    text = msVal;
+    value = msVal;
+  } else if (isUs) {
+    text = usVal;
+    value = usVal;
+  } else if (isNs) {
+    text = nsVal;
+    value = nsVal;
+  }
+  d2tVal.dataset.value = value;
+  setResult(d2tVal, text, 'ok');
+  setHint(hintD2t, '', '');
+  setHint(hintD2tResult, t('ambigHint'), 'ok');
+  renderAmbigPopover();
   if (typeof renderOffsetChips === 'function') renderOffsetChips();
 }
 

@@ -113,6 +113,10 @@ const I18N = {
     chooseCommonTz: '选择常见时区',
     fmtSelected: '已选中', fmtUnselected: '未选中',
     dragSort: '拖动排序', defaultBadge: '默认',
+    ambigHint: '⚠ 该时间存在两个瞬时（夏令时回退），悬停选择',
+    ambigEarlier: '较早瞬时', ambigLater: '较晚瞬时', ambigCurrent: '当前', ambigPick: '点击选择',
+    gapNotExist: '时间不存在',
+    gapHint: '该时间不存在：夏令时向前跳空，此时段的墙钟无对应瞬间',
   },
 en: {
     secTab: 'Sec', msTab: 'Ms', usTab: 'μs', nsTab: 'ns',
@@ -224,5 +228,9 @@ en: {
     chooseCommonTz: 'Choose a common timezone',
     fmtSelected: 'Selected', fmtUnselected: 'Unselected',
     dragSort: 'Drag to reorder', defaultBadge: 'Default',
+    ambigHint: '⚠ Two instants match (DST fall-back), hover to pick',
+    ambigEarlier: 'Earlier instant', ambigLater: 'Later instant', ambigCurrent: 'current', ambigPick: 'click to select',
+    gapNotExist: 'Time does not exist',
+    gapHint: 'This time does not exist: DST spring-forward gap, no instant matches this wall clock',
   },
 };

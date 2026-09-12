@@ -286,6 +286,23 @@ body.tab-ns .cal-right{min-width:220px}
 .t2d-popover::-webkit-scrollbar{width:5px}
 .t2d-popover::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
 .t2d-popover::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+
+/* D2T 歧义候选浮层（结构/动画复用 t2d-popover，独立类名以解耦交互） */
+.d2t-ambig-popover{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:51;min-width:300px;max-width:380px;max-height:240px;overflow-y:auto;background:linear-gradient(165deg,var(--card),var(--panel));border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.45);padding:8px;animation:t2dIn .16s ease}
+#d2t-result.show-ambig .d2t-ambig-popover{display:block}
+#d2t-result.show-ambig::after{content:'';position:absolute;left:0;right:0;top:100%;height:6px}
+.d2t-ambig-pop-item{display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background .12s;margin-bottom:2px;min-width:0}
+.d2t-ambig-pop-item:last-child{margin-bottom:0}
+.d2t-ambig-pop-item.current .d2t-ambig-pop-fmt{color:var(--accent)}
+.d2t-ambig-pop-fmt{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d2t-ambig-pop-val{font-family:var(--mono);font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .12s}
+.d2t-ambig-pop-ts{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.7}
+.d2t-ambig-pop-item:hover{background:linear-gradient(135deg,var(--accent2-soft),var(--accent-soft))}
+.d2t-ambig-pop-item:hover .d2t-ambig-pop-fmt{color:var(--accent2)}
+.d2t-ambig-pop-item:hover .d2t-ambig-pop-val{color:var(--text)}
+.d2t-ambig-popover::-webkit-scrollbar{width:5px}
+.d2t-ambig-popover::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
+.d2t-ambig-popover::-webkit-scrollbar-thumb:hover{background:var(--accent)}
 .result-block:hover{background:linear-gradient(135deg,rgba(0,212,170,0.16),rgba(91,154,255,0.12))}
 .result-block:active{transform:scale(0.99)}
 .result-value{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent2);word-break:break-all;line-height:1.35;white-space:normal;overflow:hidden;text-overflow:ellipsis;max-width:160px}
