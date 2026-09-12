@@ -27,11 +27,23 @@ function partsMap(parts) { const m = {}; for (const p of parts) if (p.type !== '
 
 function formatTz(date, tz) {
   if (!tz || tz === 'UTC') return formatUTC(date);
-  const fx = /^FIXED:([+-])(\d{2})(\d{2})$/.exec(tz);
+  const fx = /^FIXED:([+-])(\d{2})(\d{2})(\d{2})?$/.exec(tz);
   if (fx) {
-    const t = new Date(date.getTime() + ((+fx[2] * 60 + +fx[3]) * (fx[1] === '-' ? -1 : 1)) * 60000);
+    const offMins = ((+fx[2] * 3600 + +fx[3] * 60 + (+fx[4] || 0)) / 60) * (fx[1] === '-' ? -1 : 1);
+    const t = new Date(date.getTime() + Math.round(offMins * 60000));
     return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
   }
+  
+  // IANA 时区：引擎缺失历史数据时使用内置回退偏移（正常引擎直接走下方 Intl，精确到秒）
+  if (!tzHasHistoricalData(tz)) {
+    const fallback = getHistoricalOffset(date, tz);
+    if (fallback != null) {
+      const t = new Date(date.getTime() + Math.round(fallback * 60000));
+      return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+    }
+  }
+  
+  // 正常路径：Intl 精确到秒（含 LMT 秒分量，如 Asia/Shanghai 的 +08:05:43）
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
     const year = m.era === 'BC' ? '-' + m.year : m.year;
@@ -49,12 +61,23 @@ function tzParts(date, tz) {
     }
     return { y: date.getFullYear(), mo: date.getMonth() + 1, d: date.getDate(), h: date.getHours(), mi: date.getMinutes(), se: date.getSeconds(), ms: date.getMilliseconds(), wd: date.getDay() };
   }
-  const fx = /^FIXED:([+-])(\d{2})(\d{2})$/.exec(tz);
+  const fx = /^FIXED:([+-])(\d{2})(\d{2})(\d{2})?$/.exec(tz);
   if (fx) {
-    const off = (+fx[2] * 60 + +fx[3]) * (fx[1] === '-' ? -1 : 1);
-    const t = new Date(date.getTime() + off * 60000);
+    const off = ((+fx[2] * 3600 + +fx[3] * 60 + (+fx[4] || 0)) / 60) * (fx[1] === '-' ? -1 : 1);
+    const t = new Date(date.getTime() + Math.round(off * 60000));
     return { y: t.getUTCFullYear(), mo: t.getUTCMonth() + 1, d: t.getUTCDate(), h: t.getUTCHours(), mi: t.getUTCMinutes(), se: t.getUTCSeconds(), ms: date.getMilliseconds(), wd: t.getUTCDay() };
   }
+  
+  // IANA 时区：引擎缺失历史数据时使用内置回退偏移（正常引擎直接走下方 Intl，精确到秒）
+  if (!tzHasHistoricalData(tz)) {
+    const fallback = getHistoricalOffset(date, tz);
+    if (fallback != null) {
+      const t = new Date(date.getTime() + Math.round(fallback * 60000));
+      return { y: t.getUTCFullYear(), mo: t.getUTCMonth() + 1, d: t.getUTCDate(), h: t.getUTCHours(), mi: t.getUTCMinutes(), se: t.getUTCSeconds(), ms: date.getMilliseconds(), wd: t.getUTCDay() };
+    }
+  }
+  
+  // 正常路径：Intl 精确到秒（含 LMT 秒分量）
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
     return { y: m.era === 'BC' ? -Number(m.year) : Number(m.year), mo: Number(m.month), d: Number(m.day), h: Number(m.hour) % 24, mi: Number(m.minute), se: Number(m.second), ms: date.getMilliseconds(), wd: WD_INDEX[m.weekday] };
@@ -70,8 +93,9 @@ function formatWithTokens(ms, tz, fmt) {
     YYYY: String(p.y), YY: String(Math.abs(p.y)).slice(-2), MM: pad(p.mo), DD: pad(p.d),
     HH: pad(p.h), hh: pad(hour12), mm: pad(p.mi), ss: pad(p.se), SSS: String(p.ms).padStart(3, '0'),
     A: ap, a: ap.toLowerCase(), W: WEEK_CN[WEEK_EN[p.wd]] || '', WD: WEEK_EN[p.wd] || '',
+    Z: offsetLabel(tz, new Date(ms)),
   };
-  return fmt.replace(/YYYY|YY|MM|DD|HH|hh|mm|ss|SSS|A|a|W|WD/g, (t) => map[t] !== undefined ? map[t] : t);
+  return fmt.replace(/YYYY|YY|MM|DD|HH|hh|mm|ss|SSS|A|a|W|WD|Z/g, (t) => map[t] !== undefined ? map[t] : t);
 }
 
 const DATE_FMT_PRESETS = [
@@ -84,27 +108,138 @@ const DATE_FMT_PRESETS = [
 const DATE_FMT_DEFAULT_CONST = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FMT_MAX_ENABLED = 6;
 
-function offsetMinutes(date, tz) {
-  if (!tz) return -date.getTimezoneOffset();
-  if (tz === 'UTC') return 0;
-  const fx = /^FIXED:([+-])(\d{2})(\d{2})$/.exec(tz);
-  if (fx) {
-    const mins = (+fx[2] * 60 + +fx[3]) * (fx[1] === '-' ? -1 : 1);
-    return mins;
-  }
+// ============ IANA 历史偏移 ============
+// 现代 V8 / Chromium / Electron 附带的完整 ICU tzdata 本身即可正确处理 IANA
+// 时区的历史偏移（含 1901 年之前的 LMT 秒分量），因此优先用 Intl 精确计算：
+//   1. ianaOffsetMinutes —— 用 Intl.DateTimeFormat 计算任意年份的精确偏移；
+//   2. tzHasHistoricalData —— 探测引擎是否带历史数据（1850 与 2026 偏移是否不同）；
+//   3. 仅当引擎缺失历史数据时，才回退到下方 HISTORICAL_OFFSETS 近似表。
+// 例如：Asia/Shanghai 在 1901 年前的 LMT 为 +08:05:43（485 + 43/60 分钟），
+// 引擎在 year 1200 也能给出 20:05:43 的墙钟时间（已实测验证）。
+
+// IANA 时区精确偏移（分钟，可为小数以保留 LMT 秒分量）。失败返回 null。
+function ianaOffsetMinutes(date, tz) {
+  if (!(date instanceof Date)) date = new Date(date);
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
-    const year = m.era === 'BC' ? -Number(m.year) : Number(m.year);
-    const asUtc = Date.UTC(year, Number(m.month) - 1, Number(m.day), Number(m.hour) % 24, Number(m.minute), Number(m.second));
-    return Math.round((asUtc - date.getTime()) / 60000);
-  } catch (e) { return 0; }
+    if (!m || m.year == null || m.month == null || m.day == null || m.hour == null) return null;
+    const year = m.era === 'BC' ? -Math.abs(Number(m.year)) : Number(m.year);
+    const asUtc = Date.UTC(year, Number(m.month) - 1, Number(m.day), Number(m.hour) % 24, Number(m.minute) || 0, Number(m.second) || 0);
+    // 必须向下取整到秒边界：JS 的 % 对负周期截断向零，会使 1970 前的毫秒级时刻上取整到下一秒。
+    const baseMs = Math.floor(date.getTime() / 1000) * 1000;
+    return (asUtc - baseMs) / 60000;
+  } catch (e) { return null; }
+}
+
+// 探测引擎是否支持该时区的历史偏移（结果缓存）。
+const TZ_HIST_PROBE = new Map();
+function tzHasHistoricalData(tz) {
+  if (TZ_HIST_PROBE.has(tz)) return TZ_HIST_PROBE.get(tz);
+  let has = false;
+  try {
+    const a = ianaOffsetMinutes(Date.UTC(1850, 0, 15, 12, 0, 0), tz);
+    const b = ianaOffsetMinutes(Date.UTC(2026, 0, 15, 12, 0, 0), tz);
+    has = a != null && b != null && a !== b;
+  } catch (e) { has = false; }
+  TZ_HIST_PROBE.set(tz, has);
+  return has;
+}
+
+// 回退表：仅当引擎缺失历史时区数据时使用。偏移为分钟（小数保留 LMT 秒分量），
+// 夏令时按日期区间近似，取值已按 tzdata 核对（Asia/Shanghai LMT +08:05:43、
+// Asia/Tokyo LMT +09:18:59、America/New_York LMT -04:56:02）。
+const HISTORICAL_OFFSETS = {
+  'Asia/Shanghai': {
+    lmt: 485 + 43 / 60, lmtUntil: 1900, base: 480, dstOffset: 540,
+    dst: [
+      { y0: 1940, m0: 6, d0: 3, y1: 1940, m1: 10, d1: 1 },
+      { y0: 1941, m0: 3, d0: 16, y1: 1941, m1: 11, d1: 1 },
+      { y0: 1942, m0: 1, d0: 1, y1: 1945, m1: 9, d1: 30 },
+      { y0: 1946, m0: 5, d0: 15, y1: 1946, m1: 9, d1: 14 },
+      { y0: 1947, m0: 4, d0: 15, y1: 1947, m1: 10, d1: 14 },
+      { y0: 1948, m0: 5, d0: 1, y1: 1948, m1: 9, d1: 30 },
+      { y0: 1986, m0: 4, d0: 10, y1: 1991, m1: 9, d1: 10 }
+    ]
+  },
+  'Asia/Tokyo': {
+    lmt: 558 + 59 / 60, lmtUntil: 1886, base: 540, dstOffset: 600,
+    dst: [
+      { y0: 1948, m0: 5, d0: 1, y1: 1951, m1: 9, d1: 10 }
+    ]
+  },
+  'America/New_York': {
+    lmt: -(296 + 2 / 60), lmtUntil: 1883, base: -300, dstOffset: -240,
+    dst: [
+      { y0: 1918, m0: 3, d0: 31, y1: 1919, m1: 10, d1: 26 },
+      { y0: 1942, m0: 2, d0: 9, y1: 1945, m1: 9, d1: 30 },
+      { y0: 1946, m0: 4, d0: 1, y1: 1966, m1: 10, d1: 31 },
+      { y0: 1967, m0: 4, d0: 1, y1: 1973, m1: 10, d1: 31 },
+      { y0: 1974, m0: 1, d0: 6, y1: 1975, m1: 10, d1: 26 },
+      { y0: 1976, m0: 4, d0: 1, y1: 1986, m1: 10, d1: 31 },
+      { y0: 1987, m0: 4, d0: 1, y1: 2006, m1: 10, d1: 31 },
+      { y0: 2007, m0: 3, d0: 11, y1: 9999, m1: 11, d1: 7 }
+    ]
+  }
+};
+
+// 返回回退表中的历史偏移（分钟，可为小数）；不在表中时返回 null。
+function getHistoricalOffset(date, timeZone) {
+  const tz = HISTORICAL_OFFSETS[timeZone];
+  if (!tz) return null;
+  const y = date.getUTCFullYear();
+  const mo = date.getUTCMonth() + 1;
+  const d = date.getUTCDate();
+  if (tz.lmt != null && y <= tz.lmtUntil) return tz.lmt;
+  if (!tz.dst) return tz.base;
+  for (const r of tz.dst) {
+    if (y < r.y0 || y > r.y1) continue;
+    const afterStart = mo > r.m0 || (mo === r.m0 && d >= r.d0);
+    const beforeEnd = y < r.y1 || mo < r.m1 || (mo === r.m1 && d <= r.d1);
+    if (afterStart && beforeEnd) return tz.dstOffset;
+  }
+  return tz.base;
+}
+
+
+// 以毫秒为单位的时区偏移（内部用于精确反推时间戳，避免分钟取整误差）。
+function zoneOffsetMs(date, tz) {
+  if (!tz) {
+    const g = date && typeof date.getTime === 'function' ? date.getTime() : NaN;
+    if (!Number.isFinite(g)) return 0;
+    return -date.getTimezoneOffset() * 60000;
+  }
+  if (tz === 'UTC') return 0;
+  const fx = /^FIXED:([+-])(\d{2})(\d{2})(\d{2})?$/.exec(tz);
+  if (fx) {
+    return ((+fx[2] * 3600 + +fx[3] * 60 + (+fx[4] || 0)) * (fx[1] === '-' ? -1 : 1)) * 1000;
+  }
+  // 引擎缺失历史数据时，优先使用回退表偏移
+  if (!tzHasHistoricalData(tz)) {
+    const fb = getHistoricalOffset(date, tz);
+    if (fb != null) return Math.round(fb * 60000);
+  }
+  // 正常路径：Intl 精确到毫秒（含 LMT 秒分量，如 8:05:43 -> 485.7167 分）
+  const exact = ianaOffsetMinutes(date, tz);
+  return exact == null ? 0 : Math.round(exact * 60000);
+}
+
+function offsetMinutes(date, tz) {
+  return zoneOffsetMs(date, tz) / 60000;
 }
 
 function formatOffset(mins) {
-  if (mins === 0) return 'UTC+00:00';
-  const sign = mins > 0 ? '+' : '-';
-  const abs = Math.abs(mins);
-  return `UTC${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+  const sign = mins >= 0 ? '+' : '-';
+  const m = Math.abs(mins);
+  const h = String(Math.floor(m / 60)).padStart(2, '0');
+  const mi = String(Math.floor(m % 60)).padStart(2, '0');
+  const sec = Math.round((m - Math.floor(m)) * 60);
+  if (sec > 0) return `UTC${sign}${h}:${mi}:${String(sec).padStart(2, '0')}`;
+  return `UTC${sign}${h}:${mi}`;
+}
+
+// 时区偏移标签（含 LMT 秒部件），供标题/芯片/格式 token 复用。
+function offsetLabel(tz, inst) {
+  return formatOffset(offsetMinutes(inst, tz));
 }
 
 function dateToMs(d, tz) {
@@ -113,10 +248,10 @@ function dateToMs(d, tz) {
                         : new Date(d.y, d.mo - 1, d.d, d.h, d.mi, d.se).getTime();
   const guess = hasMs ? Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.se, d.ms)
                       : Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.se);
-  let ms = guess - offsetMinutes(new Date(guess), tz) * 60000;
+  let ms = guess - zoneOffsetMs(new Date(guess), tz);
   // DST 切换日：首次 guess 的偏移可能属于另一时区段，迭代取偏移直到稳定（正常 1 次收敛）
   for (let i = 0; i < 8; i++) {
-    const next = guess - offsetMinutes(new Date(ms), tz) * 60000;
+    const next = guess - zoneOffsetMs(new Date(ms), tz);
     if (next === ms) break;
     ms = next;
   }

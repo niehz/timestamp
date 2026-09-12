@@ -75,437 +75,335 @@ function currentOffsetStr(tz) {
   return `${sign}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
 }
 
-// 创建时区偏移选项
-function createTzOffsetOptions() {
-  const offsets = new Set();
-  TIMEZONES.forEach(tz => {
-    if (tz.value && tz.value !== 'UTC' && tz.value !== '') {
-      const mins = offsetMinutes(new Date(), tz.value);
-      const offsetStr = currentOffsetStr(tz.value);
-      offsets.add(offsetStr);
+// FIXED 偏移时区（手动输入偏移量）。
+function isFixedZone(v) { return /^FIXED:/.test(v || ''); }
+
+// 时区城市显示名：内置/自定义时区 → 城市名；未知 IANA → 末段；否则原值。
+function zoneCityName(tz) {
+  const z = lookupZone(tz);
+  if (z) return lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn;
+  const m = /^[A-Za-z_]+\/(.+)$/.exec(tz || '');
+  return m ? m[1].replace(/_/g, ' ') : (tz || '');
+}
+
+// 卡片标题时区展示：IANA → “IANA（城市）”；FIXED 覆盖 → “自定义 +hh:mm”，FIXED 全局 → 城市或偏移；UTC → UTC。
+function zoneTitleSuffix(tz, isOverride) {
+  const v = tz || 'UTC';
+  if (isFixedZone(v)) {
+    if (isOverride) return `${t('customTag')} ${currentOffsetStr(v)}`;
+    const z = lookupZone(v);
+    if (z) return lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn;
+    return currentOffsetStr(v);
+  }
+  if (v === 'UTC') return 'UTC';
+  const z = lookupZone(v);
+  if (z) {
+    const city = lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn;
+    return lang === 'zh' ? `${v}（${city}）` : `${v} (${city})`;
+  }
+  return v;
+}
+
+// 基于双滚轮的时区选择器已移除；此处为卡片标题右侧的 UTC 偏移芯片。
+function initCustomTzSelector() {
+  // 确保全局时区选择器有默认值
+  if (timezoneEl && !timezoneEl.value) {
+    timezoneEl.value = "Asia/Shanghai";
+  }
+  // 确保输入时区选择器与全局时区选择器同步
+  if (inputTzEl && timezoneEl && inputTzEl.value !== timezoneEl.value) {
+    inputTzEl.value = timezoneEl.value;
+  }
+  inputTzCustom = (inputTzEl.value || "") !== (timezoneEl.value || "");
+  updateDateToTsTitle();
+  updateTsToDateTitle();
+  renderOffsetChips();
+}
+
+// 芯片当前时刻：date→ts 取输入日期、ts→date 取当前时间戳，否则用 now。
+function chipInstant(kind) {
+  if (kind === "d2t") {
+    try {
+      const sel = readDateSelection();
+      if (!sel.empty && !sel.err && typeof sel.ms === "number") return new Date(sel.ms);
+    } catch (e) {}
+  } else if (kind === "t2d") {
+    try {
+      const ms = currentT2dMs();
+      if (ms !== null && ms !== undefined) return new Date(ms);
+    } catch (e) {}
+  }
+  return new Date();
+}
+
+// 芯片两段文本：前缀（城市/自定义）+ 偏移，拆分以便分色展示。
+function offsetChipParts(tz, inst) {
+  const off = offsetLabel(tz, inst);
+  if (isFixedZone(tz)) {
+    if (inputTzCustom) return { prefix: t('customTag'), off };
+    const z = lookupZone(tz);
+    return { prefix: z ? (lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn) : '', off };
+  }
+  if (tz === 'UTC') return { prefix: '', off };
+  return { prefix: zoneCityName(tz), off };
+}
+
+function offsetChipText(tz, inst) {
+  const p = offsetChipParts(tz, inst);
+  return p.prefix ? `${p.prefix} ${p.off}` : p.off;
+}
+
+function setOffsetChip(el, tz, inst) {
+  const p = offsetChipParts(tz, inst);
+  el.innerHTML = p.prefix
+    ? `<span class="cz">${htmlEscape(p.prefix)}</span><span class="co">${htmlEscape(p.off)}</span>`
+    : `<span class="co">${htmlEscape(p.off)}</span>`;
+  el.title = tz;
+}
+
+// 渲染三个卡片标题右侧的 UTC 偏移芯片（点击弹出时区/偏移编辑弹层）。
+function renderOffsetChips() {
+  const tz = activeTz();
+  const targets = [
+    { id: "d2t-offset", kind: "d2t" },
+    { id: "t2d-offset", kind: "t2d" },
+    { id: "now-offset", kind: "now" },
+  ];
+  for (const t of targets) {
+    const el = document.getElementById(t.id);
+    if (!el) continue;
+    const inst = t.kind === "now" ? new Date() : chipInstant(t.kind);
+    setOffsetChip(el, tz, inst);
+    el.classList.toggle("custom", inputTzCustom);
+  }
+}
+
+// ---------- Step 3：芯片弹层（IANA 自动补全 + 偏移输入 + ⟲ 重置） ----------
+const tzOverlay = document.getElementById('tz-overlay');
+const tzOvSearchEl = document.getElementById('tz-ov-search');
+const tzOvResultsEl = document.getElementById('tz-ov-results');
+const tzOvOffsetEl = document.getElementById('tz-ov-offset');
+const tzOvResetEl = document.getElementById('tz-ov-reset');
+const tzOvCurrentEl = document.getElementById('tz-ov-current');
+
+let tzOvCandidates = [];
+let tzOvActiveIdx = -1;
+
+['d2t-offset', 't2d-offset', 'now-offset'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-haspopup', 'dialog');
+  el.addEventListener('click', () => openTzOverlay(el));
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openTzOverlay(el);
     }
   });
-  
-  return Array.from(offsets).sort((a, b) => {
-    const aMin = parseInt(a.replace(/[+:-]/g, ''));
-    const bMin = parseInt(b.replace(/[+:-]/g, ''));
-    return aMin - bMin;
+});
+
+function tzOvResultRow(v) {
+  const cur = activeTz().replace(/^FIXED:/, '');
+  const highClass = v === cur ? ' active' : '';
+  return `<div class="tz-ov-result${highClass}" data-value="${escapeAttr(v)}" title="${escapeAttr(v)}"><span>${htmlEscape(v)}</span><span class="off">${currentOffsetStr(v)}</span></div>`;
+}
+
+function renderTzOvResults(query) {
+  const q = String(query || '').trim();
+  tzOvCandidates = filterIanaZones(q);
+  if (!tzOvResultsEl) return;
+  let html = '';
+  if (tzOvCandidates.length === 0) {
+    if (q && /^[A-Za-z]/.test(q)) {
+      const cls = classifyIanaInput(q);
+      if (cls.kind === 'resolvable') {
+        html = `<div class="tz-ov-result" data-value="${escapeAttr(q)}" title="${escapeAttr(q)}"><span>${htmlEscape(q)}</span><span class="off">${t('tzOvAlias')}</span></div>`;
+      }
+    }
+    if (!html) html = `<div class="tz-ov-result index">${t('tzOvEmpty')}</div>`;
+  } else {
+    html = tzOvCandidates.map(tzOvResultRow).join('');
+  }
+  tzOvResultsEl.innerHTML = html;
+  tzOvActiveIdx = -1;
+  tzOvResultsEl.querySelectorAll('.tz-ov-result[data-value]').forEach(row => {
+    row.addEventListener('mousedown', (e) => { e.preventDefault(); applyOverride(row.dataset.value); });
   });
 }
 
-// 基于现有滚轮实现的时区选择器
-function initCustomTzSelector() {
-  
-  // 获取DOM元素
-  const hourWheel = $('#tz-hour-wheel');
-  const minWheel = $('#tz-min-wheel');
-  const inputTz = $('#input-tz');
-  const resetBtn = $('#tz-reset-btn');
-  
-  // 确保全局时区选择器有默认值
-  if (timezoneEl && !timezoneEl.value) {
-    timezoneEl.value = 'Asia/Shanghai';
-  }
-  
-  // 确保输入时区选择器与全局时区选择器同步
-  if (inputTz && timezoneEl && inputTz.value !== timezoneEl.value) {
-    inputTz.value = timezoneEl.value;
-  }
-  
-  if (!hourWheel || !minWheel || !inputTz) {
-    return;
-  }
-  
-  // 小时数据 - 改为 +08 格式
-  const hours = [
-    '-12', '-11', '-10', '-09', '-08', '-07', '-06', '-05', '-04', '-03', '-02', '-01', 
-    '+00', '+01', '+02', '+03', '+04', '+05', '+06', '+07', '+08', '+09', '+10', '+11', '+12', '+13', '+14'
-  ];
-  
-  // 分钟数据
-  const minutes = ['00', '15', '30', '45'];
-  let tzWheelsReady = false;
-  
-    // 构建小时滚轮
-    function buildHourWheel() {
-      
-      hourWheel.innerHTML = '';
-      hourWheel.style.paddingTop = '3px';
-      hourWheel.style.paddingBottom = '3px';
-      hourWheel._step = 34;
-      
-      for (let i = 0; i < hours.length; i++) {
-        const item = document.createElement('div');
-        item.className = 'wheel-item';
-        item.textContent = hours[i];
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectWheelValue(hourWheel, i, (selectedIndex) => {
-            updateHourFromWheel(hours[selectedIndex]);
-          });
-        });
-        hourWheel.appendChild(item);
-      }
-    
-    // 设置初始选中值 - 默认使用全局时区
-    
-    const currentTz = inputTz.value || timezoneEl.value || 'UTC';
-    
-    try {
-      const mins = offsetMinutes(new Date(), currentTz);
-      
-      const hour = Math.floor(Math.abs(mins) / 60) * (mins >= 0 ? 1 : -1);
-      
-      // 将小时转换为 +08 格式
-      const hourStr = hour >= 0 ? '+' + hour.toString().padStart(2, '0') : hour.toString();
-      
-      const hourIndex = hours.indexOf(hourStr);
-      
-      if (hourIndex >= 0) {
-        selectWheelValue(hourWheel, hourIndex, (selectedIndex) => {
-          updateHourFromWheel(hours[selectedIndex]);
-        });
-      } else {
-        // 如果计算失败，默认选择UTC (+00)
-        selectWheelValue(hourWheel, 12, (selectedIndex) => {
-          updateHourFromWheel(hours[selectedIndex]);
-        });
-      }
-    } catch (error) {
-      // 默认选择UTC (+00)
-      selectWheelValue(hourWheel, 12, (selectedIndex) => {
-        updateHourFromWheel(hours[selectedIndex]);
-      });
-    }
-    
-    // 添加滚轮事件 - 实现真正的循环滚动
-    hourWheel.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const dir = e.deltaY > 0 ? 1 : -1;
-      
-      
-      // 计算新的索引
-      let ni = hourWheel._sel + dir;
-      
-      // 处理循环逻辑
-      if (ni < 0) {
-        // 向上循环：从-12跳到+12
-        ni = hours.length - 1; // 24 = +12
-      } else if (ni >= hours.length) {
-        // 向下循环：从+12跳到-12
-        ni = 0; // 0 = -12
-      }
-      
-      
-      if (ni === hourWheel._sel) {
-        return;
-      }
-      
-      // 强制设置滚动位置到目标
-      const targetScrollTop = ni * 34;
-      
-      // 立即设置滚动位置
-      hourWheel.scrollTop = targetScrollTop;
-      
-      // 立即设置选中状态
-      hourWheel._sel = ni;
-      highlightWheel(hourWheel, ni);
-      
-      // 滚动锁定
-      hourWheel._suspend = true;
-      
-      // 验证滚动设置
-      setTimeout(() => {
-        if (hourWheel.scrollTop !== targetScrollTop) {
-          hourWheel.scrollTop = targetScrollTop;
-        }
-        hourWheel._suspend = false;
-      }, 50);
-      
-      // 更新时区
-      updateHourFromWheel(hours[ni]);
-    }, { passive: false });
-    
-    // 恢复原有的滚动监听器
-    hourWheel.addEventListener('scroll', () => {
-      if (hourWheel._suspend) {
-        return;
-      }
-      
-      const idx = wheelIndexFromScrollTop(hourWheel);
-      
-      if (idx !== hourWheel._sel) { 
-        hourWheel._sel = idx; 
-        highlightWheel(hourWheel, idx); 
-        updateHourFromWheel(hours[idx]); 
-      } else {
-      }
-    });
-  }
-  
-    // 构建分钟滚轮
-    function buildMinWheel() {
-      
-      minWheel.innerHTML = '';
-      minWheel.style.paddingTop = '3px';
-      minWheel.style.paddingBottom = '3px';
-      minWheel._step = 34;
-      
-      for (let i = 0; i < minutes.length; i++) {
-        const item = document.createElement('div');
-        item.className = 'wheel-item';
-        item.textContent = minutes[i];
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          selectWheelValue(minWheel, i, (selectedIndex) => {
-            updateMinFromWheel(minutes[selectedIndex]);
-          });
-        });
-        minWheel.appendChild(item);
-      }
-    
-    // 设置初始选中值 - 默认使用全局时区
-    
-    const currentTz = inputTz.value || timezoneEl.value || 'UTC';
-    
-    try {
-      const mins = offsetMinutes(new Date(), currentTz);
-      
-      const min = (mins % 60);
-      
-      const closestMin = minutes.reduce((prev, curr) => {
-        return Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev;
-      });
-      
-      const minIndex = minutes.indexOf(closestMin);
-      
-      if (minIndex >= 0) {
-        selectWheelValue(minWheel, minIndex, (selectedIndex) => {
-          updateMinFromWheel(minutes[selectedIndex]);
-        });
-      } else {
-        // 如果计算失败，默认选择00
-        selectWheelValue(minWheel, 0, (selectedIndex) => {
-          updateMinFromWheel(minutes[selectedIndex]);
-        });
-      }
-    } catch (error) {
-      // 默认选择00
-      selectWheelValue(minWheel, 0, (selectedIndex) => {
-        updateMinFromWheel(minutes[selectedIndex]);
-      });
-    }
-    
-    // 添加滚轮事件 - 实现真正的循环滚动
-    minWheel.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const dir = e.deltaY > 0 ? 1 : -1;
-      
-      
-      // 计算新的索引
-      let ni = minWheel._sel + dir;
-      
-      // 处理循环逻辑
-      if (ni < 0) {
-        // 向上循环：从00跳到45
-        ni = minutes.length - 1; // 3 = 45
-      } else if (ni >= minutes.length) {
-        // 向下循环：从45跳到00
-        ni = 0; // 0 = 00
-      }
-      
-      
-      if (ni === minWheel._sel) {
-        return;
-      }
-      
-      // 强制设置滚动位置到目标
-      const targetScrollTop = ni * 34;
-      
-      // 立即设置滚动位置
-      minWheel.scrollTop = targetScrollTop;
-      
-      // 立即设置选中状态
-      minWheel._sel = ni;
-      highlightWheel(minWheel, ni);
-      
-      // 滚动锁定
-      minWheel._suspend = true;
-      
-      // 验证滚动设置
-      setTimeout(() => {
-        if (minWheel.scrollTop !== targetScrollTop) {
-          minWheel.scrollTop = targetScrollTop;
-        }
-        minWheel._suspend = false;
-      }, 50);
-      
-      // 更新时区
-      updateMinFromWheel(minutes[ni]);
-    }, { passive: false });
-    
-    // 恢复原有的滚动监听器
-    minWheel.addEventListener('scroll', () => {
-      if (minWheel._suspend) {
-        return;
-      }
-      
-      const idx = wheelIndexFromScrollTop(minWheel);
-      
-      if (idx !== minWheel._sel) { 
-        minWheel._sel = idx; 
-        highlightWheel(minWheel, idx); 
-        updateMinFromWheel(minutes[idx]); 
-      } else {
-      }
-    });
-  }
-  
-  // 从小时滚轮更新时区
-  function updateHourFromWheel(hourStr) {
-    // 解析小时字符串，如 "+08" -> 8
-    const hour = parseInt(hourStr);
-    const matchingTz = TIMEZONES.find(tz => {
-      if (!tz.value || tz.value === 'UTC' || tz.value === '') return false;
-      const tzMins = offsetMinutes(new Date(), tz.value);
-      const tzHour = Math.floor(Math.abs(tzMins) / 60) * (tzMins >= 0 ? 1 : -1);
-      return tzHour === hour;
-    });
-    
-    if (matchingTz) {
-      inputTz.value = matchingTz.value;
-      if (tzWheelsReady) {
-        inputTzCustom = inputTz.value !== timezoneEl.value;
-        updateDateToTsTitle();
-      }
-      renderConvert();
-    }
-  }
-  
-  // 从分钟滚轮更新时区
-  function updateMinFromWheel(min) {
-    const matchingTz = TIMEZONES.find(tz => {
-      if (!tz.value || tz.value === 'UTC' || tz.value === '') return false;
-      const tzMins = offsetMinutes(new Date(), tz.value);
-      const tzMin = (tzMins % 60);
-      return Math.abs(tzMin - parseInt(min)) <= 15;
-    });
-    
-    if (matchingTz) {
-      inputTz.value = matchingTz.value;
-      if (tzWheelsReady) {
-        inputTzCustom = inputTz.value !== timezoneEl.value;
-        updateDateToTsTitle();
-      }
-      renderConvert();
-    }
-  }
-  
-  // 重置功能
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      const globalTz = timezoneEl.value || 'UTC';
-      inputTz.value = globalTz;
-      inputTzCustom = false;
-      updateDateToTsTitle();
-      
-      // 重置时间校准
-      lastUpdateTime = 0;
-      updateNow();
-      
-      try {
-        // 重新构建滚轮以反映新的时区
-        const mins = offsetMinutes(new Date(), globalTz);
-        const hour = Math.floor(Math.abs(mins) / 60) * (mins >= 0 ? 1 : -1);
-        const min = (Math.abs(mins) % 60);
-        
-        // 将小时转换为 +08 格式
-        const hourStr = hour >= 0 ? '+' + hour.toString().padStart(2, '0') : hour.toString();
-        const hourIndex = hours.indexOf(hourStr);
-        const closestMin = minutes.reduce((prev, curr) => {
-          return Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev;
-        });
-        const minIndex = minutes.indexOf(closestMin);
-        
-        
-        if (hourIndex >= 0) selectWheelValue(hourWheel, hourIndex);
-        if (minIndex >= 0) selectWheelValue(minWheel, minIndex);
-      } catch (error) {
-        // 出错时重置到UTC
-        selectWheelValue(hourWheel, 12); // +00 = UTC
-        selectWheelValue(minWheel, 0);   // 00
-      }
-      
-      renderConvert();
-      toast(lang === 'zh' ? '已重置为全局时区' : 'Reset to global timezone');
-    });
-  }
-  
-  // 监听原始选择器变化
-  inputTz.addEventListener('change', () => {
-    const targetTz = inputTz.value || timezoneEl.value || 'UTC';
-    
-    try {
-      const mins = offsetMinutes(new Date(), targetTz);
-      const hour = Math.floor(Math.abs(mins) / 60) * (mins >= 0 ? 1 : -1);
-      const min = (Math.abs(mins) % 60);
-      
-      // 将小时转换为 +08 格式
-      const hourStr = hour >= 0 ? '+' + hour.toString().padStart(2, '0') : hour.toString();
-      const hourIndex = hours.indexOf(hourStr);
-      const closestMin = minutes.reduce((prev, curr) => {
-        return Math.abs(curr - min) < Math.abs(prev - min) ? curr : prev;
-      });
-      const minIndex = minutes.indexOf(closestMin);
-      
-      
-      if (hourIndex >= 0) selectWheelValue(hourWheel, hourIndex);
-      if (minIndex >= 0) selectWheelValue(minWheel, minIndex);
-    } catch (error) {
-      // 出错时重置到UTC
-      selectWheelValue(hourWheel, 12); // +00 = UTC
-      selectWheelValue(minWheel, 0);   // 00
-    }
-    renderConvert();
-  });
-  
-  // 初始化滚轮
-  
-  buildHourWheel();
-  buildMinWheel();
-  tzWheelsReady = true;
-  inputTzCustom = inputTz.value !== timezoneEl.value;
-  updateDateToTsTitle();
-  
-  
+// 确保 select 中存在该值对应的 option（否则 select.value 读取返回 ''，覆盖静默失效）。
+function ensureTzSelectOption(sel, value) {
+  if (!sel || !value) return;
+  if (Array.from(sel.options).some(o => o.value === value)) return;
+  const o = document.createElement('option');
+  o.value = value;
+  o.textContent = value;
+  sel.appendChild(o);
 }
+
+function applyOverride(value) {
+  ensureTzSelectOption(inputTzEl, value);
+  inputTzEl.value = value;
+  inputTzCustom = true;
+  closeTzOverlay();
+  afterTzOverride();
+}
+
+function afterTzOverride() {
+  updateDateToTsTitle();
+  updateTsToDateTitle();
+  renderConvert();
+  renderReverse();
+  lastUpdateTime = 0;
+  updateNow();
+  renderCalendar();
+  renderOffsetChips();
+}
+
+function openTzOverlay(anchorEl) {
+  const tz = activeTz();
+  tzOvActiveIdx = -1;
+  tzOvSearchEl.value = '';
+  const offsetValue = offsetInputFromValue(tz) || '';
+  tzOvOffsetEl.value = offsetValue;
+  tzOvOffsetEl.classList.remove('invalid');
+  
+  // 初始化下拉选择框
+  const tzOvSelect = document.getElementById('tz-ov-select');
+  if (tzOvSelect) {
+    tzOvSelect.value = offsetValue;
+  }
+  
+  tzOvCurrentEl.textContent = tz;
+  tzOvCurrentEl.title = tz;
+  renderTzOvResults('');
+  const r = anchorEl.getBoundingClientRect();
+  const w = tzOverlay.offsetWidth || 260;
+  const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+  tzOverlay.style.left = left + 'px';
+  // 如果是 now-offset（底部芯片），强制显示在芯片上方，避免被底部遮挡
+  const isNowChip = anchorEl.id === 'now-offset';
+  const top = isNowChip ? (r.top - tzOverlay.offsetHeight - 8) : (r.bottom + 6);
+  tzOverlay.style.top = top + 'px';
+  tzOverlay.classList.add('open');
+  // 距离视口底部过近时上移，避免弹层溢出（uTools 面板高度固定）。
+  const h = tzOverlay.offsetHeight || 300;
+  const topMax = window.innerHeight - h - 8;
+  if (parseFloat(tzOverlay.style.top) > topMax) tzOverlay.style.top = Math.max(8, topMax) + 'px';
+  
+  // 定位 IANA 下拉列表：相对于时区配置弹层的输入框下方
+  const ianaAcEl = document.querySelector('.iana-ac');
+  if (ianaAcEl) {
+    const overlayRect = tzOverlay.getBoundingClientRect();
+    const inputRect = tzOvOffsetEl.getBoundingClientRect();
+    // 在弹层内部，输入框下方显示 IANA 列表
+    ianaAcEl.style.left = `${inputRect.left - overlayRect.left + inputRect.width}px`;
+    ianaAcEl.style.top = `${inputRect.top - overlayRect.top + inputRect.height + 4}px`;
+    ianaAcEl.style.display = 'block';
+    ianaAcEl.style.maxHeight = `calc(${window.innerHeight - inputRect.top - 8}px)`;
+    // 使用 core.js 的 positionIanaAc 确保定位正确（支持 containerRect 参数）
+    positionIanaAc(tzOvOffsetEl, overlayRect);
+  }
+  
+  document.addEventListener('mousedown', tzOvOutside);
+  tzOvSearchEl.focus();
+}
+
+function closeTzOverlay() {
+  tzOverlay.classList.remove('open');
+  document.removeEventListener('mousedown', tzOvOutside);
+  tzOvActiveIdx = -1;
+}
+
+function tzOvOutside(e) {
+  if (e.target.closest('#tz-overlay') || e.target.closest('.card-offset')) return;
+  closeTzOverlay();
+}
+
+tzOvSearchEl.addEventListener('input', () => { renderTzOvResults(tzOvSearchEl.value); });
+tzOvSearchEl.addEventListener('keydown', (e) => {
+  if (e.isComposing || e.keyCode === 229) return;
+  const rows = tzOvResultsEl.querySelectorAll('.tz-ov-result[data-value]');
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!rows.length) return;
+    const dir = e.key === 'ArrowDown' ? 1 : -1;
+    tzOvActiveIdx = tzOvActiveIdx < 0
+      ? (dir > 0 ? 0 : rows.length - 1)
+      : (tzOvActiveIdx + dir + rows.length) % rows.length;
+    rows.forEach((r, i) => r.classList.toggle('highlight', i === tzOvActiveIdx));
+    if (rows[tzOvActiveIdx]) rows[tzOvActiveIdx].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (tzOvActiveIdx >= 0 && rows[tzOvActiveIdx]) { applyOverride(rows[tzOvActiveIdx].dataset.value); return; }
+    const raw = tzOvSearchEl.value.trim();
+    const cls = classifyIanaInput(raw);
+    if (cls.kind === 'canonical' || cls.kind === 'resolvable') applyOverride(cls.value);
+    else if (raw) renderTzOvResults(raw);
+  } else if (e.key === 'Escape') {
+    closeTzOverlay();
+  }
+});
+
+function commitTzOvOffset() {
+  const tzOvSelect = document.getElementById('tz-ov-select');
+  const offsetValue = tzOvSelect.value || tzOvOffsetEl.value;
+  const mins = parseOffsetInput(offsetValue);
+  if (mins === null) { tzOvOffsetEl.classList.add('invalid'); return; }
+  applyOverride(minutesToFixedStr(mins));
+}
+
+const tzOvSelect = document.getElementById('tz-ov-select');
+if (tzOvSelect) {
+  tzOvSelect.addEventListener('change', () => {
+    // 当下拉选择框有值时，填充到输入框
+    if (tzOvSelect.value) {
+      tzOvOffsetEl.value = tzOvSelect.value;
+      tzOvOffsetEl.classList.remove('invalid');
+    }
+  });
+}
+tzOvOffsetEl.addEventListener('keydown', (e) => {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    commitTzOvOffset();
+  } else if (e.key === 'Escape') {
+    closeTzOverlay();
+  }
+});
+const tzOvApplyEl = document.getElementById('tz-ov-apply');
+if (tzOvApplyEl) tzOvApplyEl.addEventListener('click', () => commitTzOvOffset());
+tzOvOffsetEl.addEventListener('input', () => {
+  // 当用户手动输入时，清除下拉选择框的选中状态
+  if (tzOvSelect) tzOvSelect.value = '';
+  tzOvOffsetEl.classList.remove('invalid');
+  const v = tzOvOffsetEl.value.trim();
+  tzOvOffsetEl.classList.toggle('invalid', v !== '' && parseOffsetInput(v) === null);
+});
+
+tzOvResetEl.addEventListener('click', () => {
+  inputTzEl.value = timezoneEl.value || 'UTC';
+  inputTzCustom = false;
+  closeTzOverlay();
+  afterTzOverride();
+});
 
 function updateTsToDateTitle() {
   const el = document.querySelector('[data-i18n="tsToDate"]');
   if (!el) return;
-  const value = timezoneEl.value || 'UTC';
-  const z = lookupZone(value);
-  const city = z
-    ? (lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn)
-    : value;
+  const suffix = zoneTitleSuffix(activeTz(), inputTzCustom);
   el.textContent = lang === 'zh'
-    ? `${t('tsToDate')}(${city})`
-    : `${t('tsToDate')} (${city})`;
+    ? `${t('tsToDate')}(${suffix})`
+    : `${t('tsToDate')} (${suffix})`;
 }
 
 function updateDateToTsTitle() {
   const el = document.querySelector('[data-i18n="dateToTs"]');
   if (!el) return;
-  let suffix;
-  if (inputTzEl.value && inputTzEl.value !== timezoneEl.value) {
-    suffix = t('customTag');
-  } else {
-    const value = timezoneEl.value || 'UTC';
-    const z = lookupZone(value);
-    suffix = z
-      ? (lang === 'zh' ? z.label.split(/[／（( ]/)[0] : z.labelEn)
-      : value;
-  }
+  const suffix = zoneTitleSuffix((inputTzEl && inputTzEl.value) || (timezoneEl && timezoneEl.value) || 'UTC', inputTzCustom);
   el.textContent = lang === 'zh'
     ? `${t('dateToTs')}(${suffix})`
     : `${t('dateToTs')} (${suffix})`;
@@ -559,6 +457,13 @@ function applyLang() {
   }).join('');
   inputTzEl.title = lang === 'zh' ? '输入时区：日期按此时区解析' : 'Input timezone: dates parsed in this zone';
   // 保持输入时区不变
+  // 若覆盖值不在全局列表中（如弹层选的任意 IANA 或 FIXED），重建时会被丢选项 → 补回并保持选中
+  if (savedInputTzValue && !Array.from(inputTzEl.options).some(o => o.value === savedInputTzValue)) {
+    const o = document.createElement('option');
+    o.value = savedInputTzValue;
+    o.textContent = savedInputTzValue;
+    inputTzEl.appendChild(o);
+  }
   inputTzEl.value = savedInputTzValue;
   if (!inputTzCustom && inputTzEl.value !== timezoneEl.value) {
     inputTzEl.value = timezoneEl.value;
@@ -580,6 +485,8 @@ function applyLang() {
   timeInputEl.placeholder = t('timePlaceholder');
   updateFracInput();
   if (tzSearchEl) tzSearchEl.placeholder = t('tzSearchPlaceholder');
+  if (tzOvSearchEl) tzOvSearchEl.placeholder = t('tzSearchPlaceholder');
+  if (tzOvOffsetEl) tzOvOffsetEl.placeholder = t('tzOvOffsetPh');
   $('#cal-now').textContent = t('now');
   $('#cal-ok').textContent = t('ok');
   const weekNames = lang === 'zh'
@@ -587,4 +494,18 @@ function applyLang() {
     : { Su: 'Su', Mo: 'Mo', Tu: 'Tu', We: 'We', Th: 'Th', Fr: 'Fr', Sa: 'Sa' };
   document.querySelectorAll('.cal-week span').forEach((el) => { el.textContent = weekNames[el.dataset.w] || el.textContent; });
   renderCalendar();
+  renderOffsetChips();
+  // 语言切换可能发生在弹层打开时：同步刷新结果/空态文案
+  if (tzOverlay && tzOverlay.classList.contains('open') && tzOvSearchEl) renderTzOvResults(tzOvSearchEl.value);
+}
+
+// 仅刷新「现在」芯片：updateNow 每 50ms 运行，避免整体重渲染；仅当偏移文本变化时写 DOM。
+function refreshNowChip() {
+  const el = document.getElementById('now-offset');
+  if (!el) return;
+  const tz = activeTz();
+  const txt = offsetChipText(tz, new Date());
+  if (el.textContent !== txt) {
+    setOffsetChip(el, tz, new Date());
+  }
 }

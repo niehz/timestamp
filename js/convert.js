@@ -20,7 +20,6 @@ function setHint(hintEl, text, state) {
 
 function renderConvert() {
   syncClearBtns();
-  const tz = timezoneEl.value;
   const isSec = currentTab === 'sec';
   const isMs = currentTab === 'ms';
   const isUs = currentTab === 'us';
@@ -30,11 +29,13 @@ function renderConvert() {
   if (sel.empty) {
     setResult(d2tVal, '', 'empty');
     setHint(hintD2t, '', '');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   if (sel.err) {
     setResult(d2tVal, t('invalidDate'), 'err');
     setHint(hintD2t, t('invalidDate'), 'err');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   let ms;
@@ -46,6 +47,7 @@ function renderConvert() {
   if (!validate(ms)) {
     setResult(d2tVal, t('outOfRange'), 'err');
     setHint(hintD2t, '', '');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   const secVal = String(Math.floor(ms / 1000));
@@ -74,6 +76,7 @@ function renderConvert() {
   d2tVal.dataset.value = value;
   setResult(d2tVal, text, 'ok');
   setHint(hintD2t, '', '');
+  if (typeof renderOffsetChips === 'function') renderOffsetChips();
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -93,7 +96,7 @@ function bigFloorDiv(n, d) {
 
 function renderReverse() {
   syncClearBtns();
-  const tz = timezoneEl.value;
+  const tz = activeTz();
   const isSec = currentTab === 'sec';
   const isMs = currentTab === 'ms';
   const isUs = currentTab === 'us';
@@ -103,12 +106,14 @@ function renderReverse() {
   if (!raw) {
     setResult(t2dVal, '', 'empty');
     setHint(hintT2d, '', '');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   const num = raw.match(/^(-?)(\d+)$/);
   if (!num) {
     setResult(t2dVal, t('invalidTs'), 'err');
     setHint(hintT2d, t('invalidTs'), 'err');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   const n = BigInt(raw);
@@ -125,6 +130,7 @@ function renderReverse() {
   if (!validate(ms)) {
     setResult(t2dVal, t('outOfRange'), 'err');
     setHint(hintT2d, t('outOfRange'), 'err');
+    if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
   }
   const date = new Date(ms);
@@ -142,6 +148,7 @@ function renderReverse() {
   t2dVal.dataset.value = displayValue.toString();
   setResult(t2dVal, text, 'ok');
   setHint(hintT2d, '', '');
+  if (typeof renderOffsetChips === 'function') renderOffsetChips();
 }
 
 function htmlEscape(s) {
@@ -168,7 +175,7 @@ function currentT2dMs() {
 function renderT2dPopover() {
   const ms = currentT2dMs();
   if (ms === null) { t2dPopoverEl.innerHTML = ''; return; }
-  const tz = timezoneEl.value;
+  const tz = activeTz();
   const items = currentDateFormats().map(f => {
     const val = formatWithTokens(ms, tz, f.fmt);
     return `<div class="t2d-pop-item" data-value="${htmlEscape(val)}"><div class="t2d-pop-fmt">${htmlEscape(f.fmt)}</div><div class="t2d-pop-val">${htmlEscape(val)}</div></div>`;

@@ -508,8 +508,9 @@ function updateNow() {
   
   // 更新显示
   const displayDate = new Date(lastMs);
-  nowDateEl.textContent = formatLocal(displayDate);
-  nowDateEl.title = formatLocal(displayDate);
+  const nowLocalStr = formatTz(displayDate, activeTz());
+  nowDateEl.textContent = nowLocalStr;
+  nowDateEl.title = nowLocalStr;
   nowSecEl.textContent = lastSec;
   nowMsEl.textContent = lastMs;
   nowUsEl.textContent = simulatedUs.toString();
@@ -518,6 +519,9 @@ function updateNow() {
   nowMsEl.title = String(lastMs);
   nowUsEl.title = simulatedUs.toString();
   nowNsEl.title = simulatedNs.toString();
+  
+  // 同步「现在」偏移芯片（DST 边界或长暂停后可能过期）
+  if (typeof refreshNowChip === 'function') refreshNowChip();
   
   // 每秒输出一次毫秒变化信息
   if (lastUpdateTime % 1000 < 50) {

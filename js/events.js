@@ -17,6 +17,7 @@ timezoneEl.addEventListener('change', () => {
   renderConvert(); 
   renderReverse(); 
   // 时区变化时重新校准时间
+  if (typeof renderOffsetChips === 'function') renderOffsetChips();
   lastUpdateTime = 0;
   updateNow(); 
   renderCalendar(); 

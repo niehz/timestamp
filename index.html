@@ -40,7 +40,7 @@
     <section class="main-grid">
       <div class="cards">
         <div class="card" id="card-d2t">
-          <div class="card-title" data-i18n="dateToTs">日期 → 时间戳</div>
+          <div class="card-title"><span data-i18n="dateToTs">日期 → 时间戳</span><span class="card-offset" id="d2t-offset"></span></div>
           <div class="card-inner">
             <div class="left-col">
               <div class="date-input-row">
@@ -115,18 +115,9 @@
                   </div>
                 </div>
                               </div>
-                <div class="custom-tz-selector" title="双滚轮时区选择器：滚轮切换小时/分钟，点击⟲重置为全局时区" data-i18n-title="tzWheelTitle">
-                  <div class="tz-hour-wheel" id="tz-hour-wheel" title="小时滚轮：滚轮切换时区偏移小时" data-i18n-title="tzHourWheelTitle">
-                    <div class="wheel-content"></div>
-                  </div>
-                  <div class="tz-min-wheel" id="tz-min-wheel" title="分钟滚轮：滚轮切换时区偏移分钟" data-i18n-title="tzMinWheelTitle">
-                    <div class="wheel-content"></div>
-                  </div>
-                  <div class="tz-reset-btn" id="tz-reset-btn" title="重置为全局时区" data-i18n-title="tzResetTitle">⟲</div>
-                  <select id="input-tz" title="输入时区" style="display: none;"></select>
-                </div>
+<select id="input-tz" style="display: none;"></select>
               </div>
-              <div class="input-hint" id="d2t-hint"></div>
+                <div class="input-hint" id="d2t-hint"></div>
             </div>
             <div class="right-col">
               <div class="result-block" id="d2t-result">
@@ -137,8 +128,8 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title" data-i18n="tsToDate">时间戳 → 日期</div>
+        <div class="card" id="card-t2d">
+          <div class="card-title"><span data-i18n="tsToDate">时间戳 → 日期</span><span class="card-offset" id="t2d-offset"></span></div>
           <div class="card-inner">
             <div class="left-col">
               <div class="input-box">
@@ -161,6 +152,7 @@
           <div class="card-title">
               <span data-i18n="currentTime">当前时间</span>
               <span class="live-dot" id="live-dot"></span>
+              <span class="card-offset" id="now-offset"></span>
               <button class="btn-pause" id="btn-pause" data-i18n="pause">暂停</button>
             </div>
           <div class="card-inner now-card-inner">
@@ -390,6 +382,62 @@
         </div>
         <p class="config-desc" data-i18n="donateThanks">感谢你的支持</p>
       </div>
+    </div>
+  </div>
+
+  <div class="tz-overlay" id="tz-overlay" role="dialog" aria-label="Timezone override">
+    <div class="tz-ov-head">
+      <input type="text" id="tz-ov-search" autocomplete="off" spellcheck="false" placeholder="搜索时区...">
+      <span class="tz-ov-current" id="tz-ov-current"></span>
+    </div>
+    <div class="tz-ov-results" id="tz-ov-results"></div>
+    <div class="tz-ov-sep"></div>
+    <div class="tz-ov-offset-group">
+      <label for="tz-ov-select" data-i18n="customOffset">自定义偏移</label>
+      <select id="tz-ov-select">
+        <option value="">选择常见时区</option>
+        <option value="-12:00">UTC-12:00</option>
+        <option value="-11:00">UTC-11:00</option>
+        <option value="-10:00">UTC-10:00</option>
+        <option value="-09:00">UTC-09:00</option>
+        <option value="-08:00">UTC-08:00</option>
+        <option value="-07:00">UTC-07:00</option>
+        <option value="-06:00">UTC-06:00</option>
+        <option value="-05:00">UTC-05:00</option>
+        <option value="-04:00">UTC-04:00</option>
+        <option value="-03:00">UTC-03:00</option>
+        <option value="-02:00">UTC-02:00</option>
+        <option value="-01:00">UTC-01:00</option>
+        <option value="+00:00">UTC+00:00</option>
+        <option value="+01:00">UTC+01:00</option>
+        <option value="+02:00">UTC+02:00</option>
+        <option value="+03:00">UTC+03:00</option>
+        <option value="+03:30">UTC+03:30</option>
+        <option value="+04:00">UTC+04:00</option>
+        <option value="+04:30">UTC+04:30</option>
+        <option value="+05:00">UTC+05:00</option>
+        <option value="+05:30">UTC+05:30</option>
+        <option value="+05:45">UTC+05:45</option>
+        <option value="+06:00">UTC+06:00</option>
+        <option value="+06:30">UTC+06:30</option>
+        <option value="+07:00">UTC+07:00</option>
+        <option value="+08:00">UTC+08:00</option>
+        <option value="+08:30">UTC+08:30</option>
+        <option value="+09:00">UTC+09:00</option>
+        <option value="+09:30">UTC+09:30</option>
+        <option value="+10:00">UTC+10:00</option>
+        <option value="+10:30">UTC+10:30</option>
+        <option value="+11:00">UTC+11:00</option>
+        <option value="+12:00">UTC+12:00</option>
+        <option value="+12:45">UTC+12:45</option>
+        <option value="+13:00">UTC+13:00</option>
+        <option value="+14:00">UTC+14:00</option>
+      </select>
+      <input type="text" id="tz-ov-offset" autocomplete="off" spellcheck="false" placeholder="或输入自定义偏移（如 +08:00）">
+    </div>
+    <div class="tz-ov-actions">
+      <button type="button" class="tz-overlay-apply" id="tz-ov-apply" data-i18n="ok">确定</button>
+      <button type="button" class="tz-overlay-reset" id="tz-ov-reset" data-i18n="tzResetTitle">⟲ 重置为全局时区</button>
     </div>
   </div>
 

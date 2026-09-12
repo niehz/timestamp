@@ -20,6 +20,8 @@ function zoneAliases(z) {
   return [...custom, ...builtin];
 }
 
+// 必须先于 TIMEZONES 加载：loadTzConfig() 会经 lookupZone 解析自定义时区，否则 TDZ 报错或标签退化为原始值。
+let CUSTOM_TIMEZONES = loadCustomTimezones();
 let TIMEZONES = loadTzConfig();
 let tzInitApplied = false;
 
@@ -144,6 +146,51 @@ function lookupZone(value) {
   return ALL_TIMEZONES.find(z => z.value === value) || CUSTOM_TIMEZONES.find(z => z.value === value);
 }
 
+// 当前生效时区：会话级覆盖（inputTzEl）优先，其次全局时区。
+function activeTz() {
+  return (inputTzEl && inputTzEl.value) || (timezoneEl && timezoneEl.value) || 'UTC';
+}
+
+// 引擎 IANA 规范目录（ES2024 Intl.supportedValuesOf）；不可用时回退内置全量列表。
+function canonicalIanaZones() {
+  try {
+    const list = Intl.supportedValuesOf('timeZone');
+    if (Array.isArray(list) && list.length) return list;
+  } catch (e) {}
+  return ALL_TIMEZONES.map(z => z.value).filter(v => /^[A-Za-z_]+\//.test(v));
+}
+
+// IANA 自动补全候选：按子串过滤规范目录。
+function filterIanaZones(query) {
+  const q = String(query || '').trim().toLowerCase();
+  const list = canonicalIanaZones();
+  if (!q) return list.slice(0, 12);
+  return list.filter(v => v.toLowerCase().includes(q)).slice(0, 12);
+}
+
+// 分类输入：canonical=规范名（可自动补全）、resolvable=合法但非规范（别名）、displayOnly=仅展示。
+function classifyIanaInput(str) {
+  const v = String(str || '').trim();
+  if (!v) return { kind: 'none', value: '' };
+  if (canonicalIanaZones().includes(v)) return { kind: 'canonical', value: v };
+  if (isValidIana(v)) return { kind: 'resolvable', value: v };
+  return { kind: 'displayOnly', value: v };
+}
+
+// 偏移分钟数 -> FIXED 内部值（支持可选秒段）。
+function minutesToFixedStr(mins) {
+  const sign = mins >= 0 ? '+' : '-';
+  const a = Math.abs(mins);
+  let hh = Math.floor(a / 60);
+  let mm = Math.floor(a % 60);
+  let sec = Math.round((a - Math.floor(a)) * 60);
+  if (sec >= 60) { sec = 0; mm += 1; }
+  if (mm >= 60) { mm = 0; hh += 1; }
+  let s = `FIXED:${sign}${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}`;
+  if (sec > 0) s += String(sec).padStart(2, '0');
+  return s;
+}
+
 function guessLocalTzName() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
 }
@@ -223,7 +270,6 @@ function loadCustomTimezones() {
   } catch (e) {}
   return [];
 }
-let CUSTOM_TIMEZONES = loadCustomTimezones();
 let tzEditingValue = null;
 
 function getAllZones() {
@@ -299,22 +345,17 @@ function renderTzConfigList() {
 function parseOffsetInput(str) {
   const s = String(str || '').trim();
   if (!s) return null;
-  // +8 / -5 / 8 / +08:00 / -04:30 / 0530 / +530 / 330
-  let m = s.match(/^([+-])?(\d{1,2})(?::(\d{2}))?$/) || s.match(/^([+-])?(\d{2})?(\d{2})$/.exec(s) && s.match(/^([+-])?(\d{1,2})(\d{2})$/));
-  let sign, hh, mm;
-  if (m) {
-    sign = m[1] === '-' ? -1 : 1;
-    hh = parseInt(m[2], 10);
-    mm = m[3] ? parseInt(m[3], 10) : 0;
-  } else {
-    const m2 = s.match(/^([+-])?(\d{1,2})(\d{2})$/);
-    if (m2) { sign = m2[1] === '-' ? -1 : 1; hh = parseInt(m2[2], 10); mm = parseInt(m2[3], 10); }
-  }
-  if (typeof hh === 'undefined') return null;
-  if (mm === undefined) mm = 0;
-  if (mm >= 60) return null;
-  const total = hh * 60 + mm;
-  const adj = total * sign;
+  // 支持：+8 / -5 / 8 / +08:00 / +08:05 / +08:05:43 / -04:30 / 0530 / +530 / 330
+  let m = s.match(/^([+-])?(\d{1,2})(?::(\d{2})(?::(\d{2}))?)?$/);
+  if (!m) m = s.match(/^([+-])?(\d{1,2})(\d{2})$/);
+  if (!m) return null;
+  const sign = m[1] === '-' ? -1 : 1;
+  const hh = parseInt(m[2], 10);
+  const mm = m[3] ? parseInt(m[3], 10) : 0;
+  const ss = m[4] ? parseInt(m[4], 10) : 0;
+  if (mm >= 60 || ss >= 60) return null;
+  const totalMins = hh * 60 + mm + ss / 60;
+  const adj = totalMins * sign;
   if (adj > 14 * 60 || adj < -12 * 60) return null;
   return adj;
 }
@@ -326,6 +367,14 @@ function isValidIana(tz) {
   } catch (e) { return false; }
 }
 
+function clearCustomTzAddForm() {
+  if (customTzCnEl) customTzCnEl.value = '';
+  if (customTzEnEl) customTzEnEl.value = '';
+  if (customTzOffsetEl) customTzOffsetEl.value = '';
+  if (customTzAbbrEl) customTzAbbrEl.value = '';
+  if (customTzIanaEl) customTzIanaEl.value = '';
+}
+
 function addCustomTimezone() {
   const cn = customTzCnEl ? customTzCnEl.value.trim() : '';
   const en = customTzEnEl ? customTzEnEl.value.trim() : '';
@@ -334,42 +383,55 @@ function addCustomTimezone() {
   const iana = customTzIanaEl ? customTzIanaEl.value.trim() : '';
   if (!cn && !en) { toast(lang === 'zh' ? '请输入中文名或英文名' : 'Enter a Chinese or English name'); return; }
 
-  let value;
-  let fallbackLabel;
-  if (iana) {
-    if (!isValidIana(iana)) { toast(lang === 'zh' ? 'IANA时区无效，请检查拼写（如 Asia/Shanghai）' : 'Invalid IANA timezone, check spelling (e.g. Asia/Shanghai)'); return; }
-    value = iana;
-    fallbackLabel = iana;
-  } else {
-    const mins = parseOffsetInput(offsetStr);
-    if (mins === null) { toast(lang === 'zh' ? '未填写IANA时，请输入 -12 到 +14 之间的有效偏移' : 'Enter a valid offset between -12 and +14 when no IANA timezone is set'); return; }
-    const sign = mins >= 0 ? '+' : '-';
-    const a = Math.abs(mins);
-    value = `FIXED:${sign}${String(Math.floor(a / 60)).padStart(2, '0')}${String(a % 60).padStart(2, '0')}`;
-    fallbackLabel = formatOffset(mins);
+  const r = resolveModernTzInput(iana, offsetStr);
+  if (r.error) { toast(r.error); return; }
+
+  // 内置时区自动选中：输入的合法 IANA 是内置时区 → 直接启用加入下拉列表，不创建自定义副本
+  if (r.value === iana && !r.displayOnly && ALL_TIMEZONES.some(z => z.value === iana) && !CUSTOM_TIMEZONES.some(z => z.value === iana)) {
+    tzConfigSelected.add(iana);
+    clearCustomTzAddForm();
+    renderCustomTzList();
+    renderTzConfigList();
+    commitTzConfig();
+    toast(`${t('tzBuiltinEnabled')}: ${iana}`);
+    return;
   }
-  if (ALL_TIMEZONES.some(z => z.value === value) || CUSTOM_TIMEZONES.some(z => z.value === value)) {
+
+  if (ALL_TIMEZONES.some(z => z.value === r.value) || CUSTOM_TIMEZONES.some(z => z.value === r.value)) {
     toast(lang === 'zh' ? '该时区已存在' : 'This timezone already exists');
     return;
   }
   const abbr = abbrStr ? abbrStr.split(/[\/\s,，]+/).map(x => x.trim()).filter(Boolean) : [];
-  const zone = { label: cn || `自定义 ${fallbackLabel}`, labelEn: en || `Custom ${fallbackLabel}`, value, custom: true, abbr, iana };
+  const zone = { label: cn || `自定义 ${r.fallbackLabel}`, labelEn: en || `Custom ${r.fallbackLabel}`, value: r.value, custom: true, abbr, iana: r.iana, displayOnly: r.displayOnly || undefined };
   CUSTOM_TIMEZONES.push(zone);
   persistCustomTimezones();
-  tzConfigSelected.add(value);
-  if (customTzCnEl) customTzCnEl.value = '';
-  if (customTzEnEl) customTzEnEl.value = '';
-  if (customTzOffsetEl) customTzOffsetEl.value = '';
-  if (customTzAbbrEl) customTzAbbrEl.value = '';
-  if (customTzIanaEl) customTzIanaEl.value = '';
+  tzConfigSelected.add(r.value);
+  clearCustomTzAddForm();
   renderCustomTzList();
   renderTzConfigList();
   commitTzConfig();
-  toast(lang === 'zh' ? '自定义时区已添加' : 'Custom timezone added');
+  if (r.displayOnly) toast(t('tzIanaOnlyWarn'));
+  else toast(lang === 'zh' ? '自定义时区已添加' : 'Custom timezone added');
 }
 
 function persistCustomTimezones() {
-  localStorage.setItem('tz_custom', JSON.stringify(CUSTOM_TIMEZONES.map(z => ({ label: z.label, labelEn: z.labelEn, value: z.value, abbr: z.abbr || [], iana: z.iana || '' }))));
+  localStorage.setItem('tz_custom', JSON.stringify(CUSTOM_TIMEZONES.map(z => ({ label: z.label, labelEn: z.labelEn, value: z.value, abbr: z.abbr || [], iana: z.iana || '', displayOnly: !!z.displayOnly }))));
+}
+
+// 解析“真实时区 + 偏移”输入：合法 IANA 直接生效；非法 IANA 接受为仅展示(displayOnly)，
+// 回退到固定偏移；两者皆无偏移则报错。
+function resolveModernTzInput(iana, offsetStr) {
+  const zIana = String(iana || '').trim();
+  const zOffset = String(offsetStr || '').trim();
+  if (zIana) {
+    if (isValidIana(zIana)) return { value: zIana, iana: zIana, displayOnly: false, fallbackLabel: zIana, error: '' };
+    const mins = parseOffsetInput(zOffset);
+    if (mins === null) return { error: lang === 'zh' ? '该IANA时区无效且未填写偏移' : 'Invalid IANA timezone and no offset provided' };
+    return { value: minutesToFixedStr(mins), iana: zIana, displayOnly: true, fallbackLabel: formatOffset(mins), error: '' };
+  }
+  const mins = parseOffsetInput(zOffset);
+  if (mins === null) return { error: lang === 'zh' ? '请输入 -12 到 +14 之间的有效偏移' : 'Enter a valid offset between -12 and +14' };
+  return { value: minutesToFixedStr(mins), iana: '', displayOnly: false, fallbackLabel: formatOffset(mins), error: '' };
 }
 
 function removeCustomTimezone(value) {
@@ -382,9 +444,9 @@ function removeCustomTimezone(value) {
 }
 
 function offsetInputFromValue(value) {
-  const m = String(value || '').match(/^FIXED:([+-])(\d{2})(\d{2})$/);
+  const m = String(value || '').match(/^FIXED:([+-])(\d{2})(\d{2})(\d{2})?$/);
   if (!m) return '';
-  return `${m[1]}${m[2]}:${m[3]}`;
+  return m[4] ? `${m[1]}${m[2]}:${m[3]}:${m[4]}` : `${m[1]}${m[2]}:${m[3]}`;
 }
 
 function renderCustomTzList() {
@@ -415,7 +477,9 @@ function renderCustomTzList() {
     }
     const label = htmlEscape(lang === 'zh' ? z.label : z.labelEn);
     const offsetStr = formatOffset(offsetMinutes(new Date(), z.value));
-    const idStr = z.iana ? `<span class="timezone-value">${htmlEscape(z.iana)}</span>` : `<span class="timezone-value">${htmlEscape(z.value)}</span>`;
+    const idStr = z.displayOnly
+      ? `<span class="timezone-value">${htmlEscape(z.iana || z.value)}</span><span class="tz-iana-only">${t('tzIanaOnlyBadge')}</span>`
+      : (z.iana ? `<span class="timezone-value">${htmlEscape(z.iana)}</span>` : `<span class="timezone-value">${htmlEscape(z.value)}</span>`);
     const aliasStr = zoneAliases(z).length ? `<span class="tz-alias">${zoneAliases(z).map(a => htmlEscape(a)).join('/')}</span>` : '';
     return `<div class="custom-tz-item" data-value="${escapeAttr(z.value)}">
       <div class="timezone-info">
@@ -452,6 +516,9 @@ function renderCustomTzList() {
       removeCustomTimezone(item.dataset.value);
     });
   });
+  customTzListEl.querySelectorAll('.edit-iana').forEach(inp => {
+    attachIanaAutocomplete(inp, (v) => { inp.value = v; });
+  });
 }
 
 function saveEditCustomTimezone(value, item) {
@@ -464,44 +531,146 @@ function saveEditCustomTimezone(value, item) {
   const iana = (item.querySelector('.edit-iana').value || '').trim();
   if (!cn && !en) { toast(lang === 'zh' ? '请输入中文名或英文名' : 'Enter a Chinese or English name'); return; }
 
-  let newValue, fallbackLabel;
-  if (iana) {
-    if (!isValidIana(iana)) { toast(lang === 'zh' ? 'IANA时区无效，请检查拼写（如 Asia/Shanghai）' : 'Invalid IANA timezone, check spelling (e.g. Asia/Shanghai)'); return; }
-    newValue = iana;
-    fallbackLabel = iana;
-  } else {
-    const mins = parseOffsetInput(offsetStr);
-    if (mins === null) { toast(lang === 'zh' ? '未填写IANA时，请输入 -12 到 +14 之间的有效偏移' : 'Enter a valid offset between -12 and +14 when no IANA timezone is set'); return; }
-    const sign = mins >= 0 ? '+' : '-';
-    const a = Math.abs(mins);
-    newValue = `FIXED:${sign}${String(Math.floor(a / 60)).padStart(2, '0')}${String(a % 60).padStart(2, '0')}`;
-    fallbackLabel = formatOffset(mins);
-  }
-  if (newValue !== value && (ALL_TIMEZONES.some(z => z.value === newValue) || CUSTOM_TIMEZONES.some(z => z.value === newValue))) {
+  const r = resolveModernTzInput(iana, offsetStr);
+  if (r.error) { toast(r.error); return; }
+  if (r.value !== value && (ALL_TIMEZONES.some(z => z.value === r.value) || CUSTOM_TIMEZONES.some(z => z.value === r.value))) {
     toast(lang === 'zh' ? '该时区已存在' : 'This timezone already exists');
     return;
   }
   const abbr = abbrStr ? abbrStr.split(/[\/\s,，]+/).map(x => x.trim()).filter(Boolean) : [];
-  zone.label = cn || `自定义 ${fallbackLabel}`;
-  zone.labelEn = en || `Custom ${fallbackLabel}`;
+  zone.label = cn || `自定义 ${r.fallbackLabel}`;
+  zone.labelEn = en || `Custom ${r.fallbackLabel}`;
   zone.abbr = abbr;
-  zone.iana = iana;
-  if (newValue !== value) {
-    zone.value = newValue;
+  zone.iana = r.iana;
+  zone.displayOnly = r.displayOnly || undefined;
+  if (r.value !== value) {
+    zone.value = r.value;
     tzConfigSelected.delete(value);
-    tzConfigSelected.add(newValue);
+    tzConfigSelected.add(r.value);
   }
   persistCustomTimezones();
   tzEditingValue = null;
   renderCustomTzList();
   renderTzConfigList();
   commitTzConfig();
-  toast(lang === 'zh' ? '自定义时区已更新' : 'Custom timezone updated');
+  if (r.displayOnly) toast(t('tzIanaOnlyWarn'));
+  else toast(lang === 'zh' ? '自定义时区已更新' : 'Custom timezone updated');
 }
 
 function escapeAttr(str) {
   return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// ---------- Step 5：IANA 字段自动补全（配置面板，静态添加表单与行内编辑表单共用） ----------
+let ianaAcEl = null;
+let ianaAcInput = null;
+let ianaAcOnPick = null;
+
+function ensureIanaAcEl() {
+  if (ianaAcEl) return ianaAcEl;
+  ianaAcEl = document.createElement('div');
+  ianaAcEl.className = 'iana-ac';
+  ianaAcEl.style.display = 'none';
+  document.body.appendChild(ianaAcEl);
+  return ianaAcEl;
+}
+
+function closeIanaAc() {
+  if (ianaAcEl) ianaAcEl.style.display = 'none';
+  ianaAcInput = null;
+  ianaAcOnPick = null;
+}
+
+function positionIanaAc(inputEl, containerRect) {
+  const r = containerRect || inputEl.getBoundingClientRect();
+  const w = ianaAcEl.offsetWidth || 300;
+  ianaAcEl.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  const h = ianaAcEl.offsetHeight || 260;
+  let top = r.bottom + 4;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+  ianaAcEl.style.top = top + 'px';
+}
+
+function ianaAcRows(query) {
+  const q = String(query || '').trim();
+  const zones = filterIanaZones(q);
+  let html = '';
+  if (zones.length === 0) {
+    if (q && /^[A-Za-z]/.test(q)) {
+      const cls = classifyIanaInput(q);
+      if (cls.kind === 'resolvable') {
+        html = `<div class="tz-ov-result" data-value="${escapeAttr(q)}"><span>${htmlEscape(q)}</span><span class="off">${t('tzOvAlias')}</span></div>`;
+      }
+    }
+    if (!html) html = `<div class="tz-ov-result index">${t('tzOvEmpty')}</div>`;
+  } else {
+    html = zones.map(v => `<div class="tz-ov-result" data-value="${escapeAttr(v)}"><span>${htmlEscape(v)}</span><span class="off">${currentOffsetStr(v)}</span></div>`).join('');
+  }
+  return html;
+}
+
+function pickIanaAc(inputEl, value) {
+  inputEl.value = value;
+  if (ianaAcOnPick) ianaAcOnPick(value);
+  closeIanaAc();
+}
+
+function attachIanaAutocomplete(inputEl, onPick) {
+  if (!inputEl || inputEl.dataset.ianaAc === '1') return;
+  inputEl.dataset.ianaAc = '1';
+  const ac = ensureIanaAcEl();
+
+  function open() {
+    ac.innerHTML = ianaAcRows(inputEl.value);
+    positionIanaAc(inputEl);
+    ac.style.display = 'block';
+    ianaAcInput = inputEl;
+    ianaAcOnPick = onPick;
+    ac.querySelectorAll('.tz-ov-result[data-value]').forEach(row => {
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); pickIanaAc(inputEl, row.dataset.value); });
+    });
+  }
+
+  inputEl.addEventListener('focus', () => { open(); });
+  inputEl.addEventListener('input', () => {
+    if (ac.style.display === 'block' && ianaAcInput === inputEl) ac.innerHTML = ianaAcRows(inputEl.value);
+    else open();
+  });
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    const active = ac.style.display === 'block' && ianaAcInput === inputEl;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!active) { open(); return; }
+      e.preventDefault();
+      const rows = ac.querySelectorAll('.tz-ov-result[data-value]');
+      if (!rows.length) return;
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      let idx = Array.prototype.findIndex.call(rows, r => r.classList.contains('highlight'));
+      idx = idx < 0 ? (dir > 0 ? 0 : rows.length - 1) : (idx + dir + rows.length) % rows.length;
+      rows.forEach((r, i) => r.classList.toggle('highlight', i === idx));
+      rows[idx].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      if (!active) return;
+      const rows = ac.querySelectorAll('.tz-ov-result[data-value]');
+      const hl = Array.prototype.findIndex.call(rows, r => r.classList.contains('highlight'));
+      if (hl >= 0 && rows[hl]) { e.preventDefault(); pickIanaAc(inputEl, rows[hl].dataset.value); return; }
+      const q = inputEl.value.trim();
+      const cls = classifyIanaInput(q);
+      if (cls.kind === 'canonical' || cls.kind === 'resolvable') { e.preventDefault(); pickIanaAc(inputEl, cls.value); }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeIanaAc();
+    }
+  });
+}
+
+document.addEventListener('mousedown', (e) => {
+  if (!ianaAcEl || ianaAcEl.style.display === 'none') return;
+  if (e.target.closest('.iana-ac')) return;
+  if (ianaAcInput && ianaAcInput.contains(e.target)) return;
+  closeIanaAc();
+});
 
 function applyModalI18n() {
   const emptyTip = customTzListEl && customTzListEl.querySelector('.empty-tip');
@@ -568,6 +737,21 @@ function initTzConfig() {
     [customTzCnEl, customTzEnEl, customTzOffsetEl].forEach(el => {
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') addCustomTimezone(); });
     });
+    if (customTzIanaEl) {
+      attachIanaAutocomplete(customTzIanaEl, (v) => {
+        const z = lookupZone(v);
+        if (z) {
+          if (!customTzCnEl.value.trim()) customTzCnEl.value = z.label || '';
+          if (!customTzEnEl.value.trim()) customTzEnEl.value = z.labelEn || v;
+        }
+      });
+      customTzIanaEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !(ianaAcEl && ianaAcEl.style.display === 'block')) {
+          e.preventDefault();
+          addCustomTimezone();
+        }
+      });
+    }
   }
   if (btnResetTzConfig) {
     btnResetTzConfig.addEventListener('click', () => resetTzConfig());
