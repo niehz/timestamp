@@ -217,6 +217,8 @@ function extractDataI18nKeys(html) {
   for (const m of html.matchAll(/\bdata-i18n="([^"]+)"/g)) keys.add(m[1]);
   // data-i18n-title="key"
   for (const m of html.matchAll(/\bdata-i18n-title="([^"]+)"/g)) keys.add(m[1]);
+  // data-i18n-ph="key"
+  for (const m of html.matchAll(/\bdata-i18n-ph="([^"]+)"/g)) keys.add(m[1]);
   return keys;
 }
 

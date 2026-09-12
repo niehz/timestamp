@@ -1,0 +1,18 @@
+{
+  "name": "时间戳转换器 / Timestamp Converter",
+  "short_name": "时间戳转换",
+  "description": "秒/毫秒/微秒/纳秒时间戳转换、时区与日历工具",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "../logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

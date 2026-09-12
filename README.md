@@ -57,6 +57,22 @@
 ### 浏览器直接使用
 无需安装，直接打开 `index.html` 即可体验全部功能；非 uTools 环境下复制功能回退到浏览器剪贴板 API。
 
+### 桌面端（Electron）打包
+`web/` 下提供 Electron 桌面壳：托盘后台运行、本地化菜单栏（File/Edit/View/Window/Help 中英切换）、可配置全局快捷键（默认 `Ctrl+Alt+T`，系统设置页可录制/停用/重置）、关闭确认、开机自启与设置持久化，复用本仓库前端界面（`web/build`）作为打包负载。桌面壳语言与前端界面语言**双向联动**（默认跟随系统），均可一键切换。
+
+```bash
+cd web/electron
+npm ci                 # 按 package-lock.json 复现依赖
+npm run dist           # 当前主机平台打包（win nsis+zip / linux AppImage+deb / mac dmg+zip）
+npm run dist:win       # 仅 Windows；npm run dist:linux / npm run dist:mac 同理
+```
+
+- 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（win nsis + zip、linux AppImage + deb、mac dmg + zip，Electron 44.3.0、npmmirror 镜像）。
+- `dist` 入口 `dist.cjs`（纯 Node，跨平台）自动注入国内镜像环境变量（NSIS / winCodeSign / Electron 二进制均走 npmmirror），**在无法访问 GitHub 的网络下也能打包**；如遇 `connect ETIMEDOUT 20.205.243.166:443` 之类错误，确认无代理后重试即可。
+- 平台限制：**macOS 产物只能在 macOS 上打包**；Linux AppImage/deb 建议在 Linux 上打包（Windows 只能出 dir）；Windows nsis 在 Linux/macOS 主机需 wine。已在 Windows 主机实测成功拉取 Linux 版 Electron 并产出未打包目录。
+- `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，打包前需同步 `web/build`，否则桌面产物会是旧界面。**
+- `web/electron/node_modules/` 与 `web/electron/release/` 均为依赖/构建产物，不入库。
+
 ## 使用说明
 
 1. **日期 → 时间戳**：左侧输入日期（`2026-09-07`、`2026年9月7日 13时49分08秒`）或相对 / 部分日期，从快捷建议中选择，点击结果复制。
@@ -96,6 +112,12 @@ timestamp/
 └── dev/
     ├── scripts/        # validate.mjs、load-test.mjs
     └── tests/          # 单元测试（node:test）
+
+web/
+├── build/              # 前端镜像 + PWA 壳（web-boot.js / manifest / sw），Electron 打包负载
+└── electron/           # 桌面壳源码（main.js/preload.js/package.json）+ 打包配置
+    ├── node_modules/   # 依赖（不入库）
+    └── release/        # 打包产物（不入库）
 ```
 
 ## 开发
