@@ -58,7 +58,7 @@
 无需安装，直接打开 `index.html` 即可体验全部功能；非 uTools 环境下复制功能回退到浏览器剪贴板 API。
 
 ### 桌面端（Electron）打包
-`web/` 下提供 Electron 桌面壳：托盘后台运行、`Ctrl+Alt+T` 全局快捷键、关闭确认、开机自启与快捷键设置持久化，复用本仓库前端界面（`web/build`）作为打包负载。
+`web/` 下提供 Electron 桌面壳：托盘后台运行、本地化菜单栏（File/Edit/View/Window/Help 中英切换）、可配置全局快捷键（默认 `Ctrl+Alt+T`，系统设置页可录制/停用/重置）、关闭确认、开机自启与设置持久化，复用本仓库前端界面（`web/build`）作为打包负载。桌面壳语言与前端界面语言**双向联动**（默认跟随系统），均可一键切换。
 
 ```bash
 cd web/electron

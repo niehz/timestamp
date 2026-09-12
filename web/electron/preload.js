@@ -15,4 +15,5 @@ contextBridge.exposeInMainWorld('tsShell', {
   setSettings: (patch) => ipcRenderer.invoke('ts:settings:set', patch),
   onSummon: (cb) => ipcRenderer.on('ts:summon', () => cb()),
   onSettingsChanged: (cb) => ipcRenderer.on('ts:settings:changed', (_e, s) => cb(s)),
+  onUiLangChanged: (cb) => ipcRenderer.on('ts:uiLang:changed', (_e, l) => cb(l)),
 });

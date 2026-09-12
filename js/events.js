@@ -5,7 +5,17 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
-function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); }
+function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); if (window.tsShell) window.tsShell.setSettings({ uiLang: lang }); }
+
+function setAppLang(l) {
+  const target = l === 'en' ? 'en' : 'zh';
+  if (lang === target) return;
+  lang = target;
+  applyLang();
+  renderConvert();
+  renderReverse();
+  if (window.tsShell) window.tsShell.setSettings({ uiLang: lang });
+}
 
 timezoneEl.addEventListener('change', () => { 
   if (!inputTzCustom) {

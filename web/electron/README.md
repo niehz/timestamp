@@ -1,11 +1,19 @@
 # 桌面壳（Electron）
 
-Web 前端的时间戳转换器桌面版外壳：托盘后台运行、`Ctrl+Alt+T` 全局快捷键、关闭确认（后台运行 / 退出 / 取消）、开机自启与快捷键设置持久化，复用 `web/build` 前端界面作为负载。
+Web 前端的时间戳转换器桌面版外壳：托盘后台运行、本地化菜单栏、可配置全局快捷键、关闭确认（后台运行 / 退出 / 取消）、开机自启与设置持久化，复用 `web/build` 前端界面作为负载。
+
+## 功能
+
+- **本地化菜单栏**：File/Edit/View/Window/Help 中英切换（默认跟随系统区域），`文件/File` 内含「语言」子菜单与快捷键设置入口；托盘菜单同样随语言切换。
+- **语言双向联动**：菜单切换语言 ⇄ 前端界面 EN/中 按钮同步切换；以 `settings.json#uiLang` 为单一事实来源，并推送前端 `applyLang`。
+- **可配置全局快捷键**：系统设置页顶部可录制组合键 / 启用停用 / 重置默认（初始默认 `Ctrl+Alt+T`），冲突时回滚提示；禁用时输入框显示「已禁用」。
+- 其余：托盘（单击/双击呼出、开机自启、显示当前快捷键）、关闭确认、单实例、`--payload=` 二次唤起。
 
 ## 结构
 
-- `main.js` —— Electron 主进程（单实例、托盘、全局快捷键、设置存取、加载前端）。
-- `preload.js` —— 注入 `window.utools` shim 与 `window.tsShell`（快捷键设置 API），复用根目录 uTools 版前端的复制/呼出逻辑。
+- `main.js` —— Electron 主进程（本地化菜单、托盘、全局快捷键、设置存取、语言联动、加载前端）。
+- `preload.js` —— 注入 `window.utools` shim 与 `window.tsShell`（快捷键/语言 API：getSettings / setSettings / onSummon / onSettingsChanged / onUiLangChanged）。
+- `web-boot.js`（位于 `../build/`）—— 检测到 `tsShell` 时动态注入快捷键设置区块并联动语言。
 - `package.json` —— 工程与 electron-builder 配置（`build` 字段）。
 - `package-lock.json` —— 依赖锁定，支持 `npm ci` 复现。
 - `../build/` —— 前端负载，打包时经 `extraResources` 拷贝进 `resources/webui`；未打包（`npm start`）时直接加载该目录。
