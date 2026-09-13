@@ -47,7 +47,18 @@ function renderDayGrid() {
   calGrid.innerHTML = '';
   for (let i = 0; i < firstDow; i++) calGrid.appendChild(el('button', 'cal-day empty', ''));
   for (let d = 1; d <= dim; d++) {
-    const btn = el('button', 'cal-day', String(d));
+    const btn = el('button', 'cal-day', '');
+    const daySpan = document.createElement('span');
+    daySpan.className = 'day';
+    daySpan.textContent = String(d);
+    btn.appendChild(daySpan);
+    const lu = lunarOf(calYear, calMonth + 1, d);
+    if (lu) {
+      const lunarSpan = document.createElement('span');
+      lunarSpan.className = 'lunar';
+      lunarSpan.textContent = lunarDayCn(lu.d);
+      btn.appendChild(lunarSpan);
+    }
     const dow = (firstDow + d - 1) % 7;
     if (dow === 0 || dow === 6) btn.classList.add('weekend');
     const isSel = calSelected && calSelected.y === calYear && calSelected.mo === calMonth && calSelected.d === d;
