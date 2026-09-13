@@ -70,7 +70,7 @@ npm run dist:win       # 仅 Windows；npm run dist:linux / npm run dist:mac 同
 - 源码：`web/electron/main.js`、`web/electron/preload.js`；配置见 `package.json` 的 `build` 字段（win nsis + zip、linux AppImage + deb、mac dmg + zip，Electron 44.3.0、npmmirror 镜像）。
 - `dist` 入口 `dist.cjs`（纯 Node，跨平台）自动注入国内镜像环境变量（NSIS / winCodeSign / Electron 二进制均走 npmmirror），**在无法访问 GitHub 的网络下也能打包**；如遇 `connect ETIMEDOUT 20.205.243.166:443` 之类错误，确认无代理后重试即可。
 - 平台限制：**macOS 产物只能在 macOS 上打包**；Linux AppImage/deb 建议在 Linux 上打包（Windows 只能出 dir）；Windows nsis 在 Linux/macOS 主机需 wine。已在 Windows 主机实测成功拉取 Linux 版 Electron 并产出未打包目录。
-- `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，打包前需同步 `web/build`，否则桌面产物会是旧界面。**
+- `web/build/` 是前端镜像 + PWA/桌面壳负载（另含 `web-boot.js`、`manifest.webmanifest`、`sw.js`），打包时作为 `resources/webui` 自动拷贝，托盘/窗口图标取自其中 `logo.png`。**改动根目录前端代码后，运行 `npm run build:web` 同步 `web/build`（内容有变更时自动升级缓存戳 `?v=`），否则桌面产物会停留旧界面。**
 - `web/electron/node_modules/` 与 `web/electron/release/` 均为依赖/构建产物，不入库。
 
 ## 使用说明
@@ -83,10 +83,10 @@ npm run dist:win       # 仅 Windows；npm run dist:linux / npm run dist:mac 同
 
 ## 技术实现
 
-- 模块化拆分，按固定顺序加载（见 `index.html`）：`constants → timezones → i18n → validators → error-handler → core → datetime → fields → calendar → convert → tzselector → events`。
+- 模块化拆分，按固定顺序加载（见 `index.html`）：`constants → timezones → i18n → error-handler → storage → core → datetime → fields → calendar → convert → tzselector → events`。
 - 时区偏移：优先 `Intl.DateTimeFormat` 精确计算（含 LMT 秒分量与公元前年份，采用「瞬时域候选年」而非 era 字段解析规避引擎差异）；引擎缺失历史数据时回退内置 `HISTORICAL_OFFSETS` 表。
 - 时间戳范围校验覆盖 ECMAScript 可表示范围（±8.64e15 ms），超出予以提示；超大值经 `BigInt` 无损换算。
-- 工程化：`npm run verify` 一键执行语法校验、HTML/i18n 一致性检查、模块加载测试与单元测试。
+- 工程化：`npm run verify` 一键执行语法校验、HTML/i18n 一致性检查、模块加载测试、`web/build` 镜像同步检查与单元测试。
 
 ## 目录结构
 
@@ -108,7 +108,7 @@ timestamp/
 │   ├── events.js       # 事件绑定、ESC 分发、滚动条
 │   ├── i18n.js         # 中英文文案
 │   ├── data/timezones.js   # IANA 时区数据与别名
-│   └── utils/          # constants、validators、error-handler
+│   └── utils/          # constants、storage、error-handler（localStorage 安全封装）
 └── dev/
     ├── scripts/        # validate.mjs、load-test.mjs
     └── tests/          # 单元测试（node:test）

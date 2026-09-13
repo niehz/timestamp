@@ -10,6 +10,15 @@ test('pad pads to 2 digits', () => {
   assert.equal(call('pad', 0), '00');
 });
 
+test('formatYear renders parseable era years (>=4 digits, signed)', () => {
+  assert.equal(call('formatYear', 2026), '2026');
+  assert.equal(call('formatYear', 66), '0066');
+  assert.equal(call('formatYear', 0), '0000');
+  assert.equal(call('formatYear', -5), '-0005');
+  assert.equal(call('formatYear', -20000), '-20000');
+  assert.equal(call('formatYear', 275759), '275759');
+});
+
 test('stripTsNoise keeps digits and one leading minus only', () => {
   assert.equal(call('stripTsNoise', '1,754,003,672'), '1754003672');
   assert.equal(call('stripTsNoise', '1 754 003 672'), '1754003672');
@@ -75,12 +84,21 @@ test('fracToMs converts fractional strings to ms', () => {
   assert.equal(call('fracToMs', null), 0);
 });
 
-test('validYmd validates calendar dates', () => {
+test('validYmd validates calendar dates across full SAFE year range', () => {
   assert.equal(call('validYmd', 2026, 9, 7), true);
   assert.equal(call('validYmd', 2026, 2, 30), false);
   assert.equal(call('validYmd', 2024, 2, 29), true);
   assert.equal(call('validYmd', 2023, 2, 29), false);
-  assert.equal(call('validYmd', 0, 1, 1), false);
+  assert.equal(call('validYmd', 0, 1, 1), true);
+  assert.equal(call('validYmd', 0, 2, 29), true); // 0 年为闰年
+  assert.equal(call('validYmd', 0, 2, 30), false);
+  assert.equal(call('validYmd', -20000, 6, 15), true);
+  assert.equal(call('validYmd', 50, 2, 29), false); // 50 年非闰，不随 JS 1900+ 映射
+  assert.equal(call('validYmd', 96, 2, 29), true);
+  assert.equal(call('validYmd', -271820, 1, 1), true);
+  assert.equal(call('validYmd', -271821, 1, 1), false);
+  assert.equal(call('validYmd', 275759, 12, 31), true);
+  assert.equal(call('validYmd', 275760, 1, 1), false);
 });
 
 test('fixedZoneValue / splitZone / toDateStr', () => {

@@ -6,7 +6,7 @@ const { call } = createFresh();
 
 test('parseIsoFmt compact form with explicit offset', () => {
   assert.deepEqual(call('parseIsoFmt', '20260907T134908+0800'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 0,
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 0, us: 0, ns: 0,
     tz: { label: '+08:00', offset: 480, value: 'FIXED:+0800' },
   });
   assert.equal(call('parseIsoFmt', '2026-09-07'), null);
@@ -14,16 +14,16 @@ test('parseIsoFmt compact form with explicit offset', () => {
 
 test('parseYmdFmt / parseCjkFmt basics', () => {
   assert.deepEqual(call('parseYmdFmt', '2026-09-07 13:49:08'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 0,
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 0, us: 0, ns: 0,
   });
   assert.deepEqual(call('parseCjkFmt', '2026年9月7日'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0,
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
   });
 });
 
 test('parseNumFmt respects ambiguity style (default us)', () => {
   assert.deepEqual(call('parseNumFmt', '07/09/2026'), {
-    mode: 'parts', y: 2026, mo: 7, d: 9, h: 0, mi: 0, s: 0, ms: 0,
+    mode: 'parts', y: 2026, mo: 7, d: 9, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
   });
 });
 
@@ -40,13 +40,13 @@ test('parseRelative resolves relative day keywords', () => {
 
 test('parseDateEx resolves common formats', () => {
   assert.deepEqual(call('parseDateEx', '2026-09-07'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, src: 'ymd',
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0, src: 'ymd',
   });
   assert.deepEqual(call('parseDateEx', '2026年9月7日'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, src: 'cjk',
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0, src: 'cjk',
   });
   assert.deepEqual(call('parseDateEx', '09/07/2026'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, src: 'num',
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0, src: 'num',
   });
   assert.equal(call('parseDateEx', 'not a date at all'), null);
 });
@@ -74,6 +74,48 @@ test('parseDateEx returns null for garbage', () => {
 
 test('fraction handling in date parsing', () => {
   assert.deepEqual(call('parseYmdFmt', '2026-09-07 13:49:08.456'), {
-    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 456,
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 456, us: 0, ns: 0,
+  });
+});
+
+test('year 0 and negative years parse as era parts (SAFE range)', () => {
+  assert.equal(call('parseYmdFmt', '0000').y, 0);
+  assert.deepEqual(call('parseYmdFmt', '0000-06-15'), {
+    mode: 'parts', y: 0, mo: 6, d: 15, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.deepEqual(call('parseYmdFmt', '0000-02-29'), {
+    mode: 'parts', y: 0, mo: 2, d: 29, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.equal(call('parseYmdFmt', '0000-06-15 12:00:00').y, 0);
+  assert.deepEqual(call('parseCjkFmt', '0000年6月15日'), {
+    mode: 'parts', y: 0, mo: 6, d: 15, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.equal(call('parseNumFmt', '12/31/0000').y, 2000); // num 格式保持 0-99 两位 → 20xx shorthand
+  assert.equal(call('parseDateEx', '0000').y, 0);
+  assert.equal(call('parseDateEx', '0000-06-15').y, 0);
+  assert.equal(call('parseDateEx', '-20000-06-15').y, -20000);
+  assert.equal(call('parseDateEx', '-20000').y, -20000);
+  assert.equal(call('parseDateEx', '275759-12-31').y, 275759);
+  assert.equal(call('parseDateEx', '-271820-01-01').y, -271820);
+  assert.equal(call('parseDateEx', '-271821-01-01'), null);
+  assert.equal(call('parseDateEx', '275760-01-01'), null);
+  assert.deepEqual(call('parseYmdFmt', '0001-01-01'), {
+    mode: 'parts', y: 1, mo: 1, d: 1, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+});
+
+test('9-digit fraction preserved across parse formats (round7 P1-B)', () => {
+  assert.deepEqual(call('parseYmdFmt', '2026-09-07 13:49:08.123456789'), {
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 123, us: 456, ns: 789,
+  });
+  assert.deepEqual(call('parseCjkFmt', '2026年9月7日 13:49:08.987654321'), {
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 987, us: 654, ns: 321,
+  });
+  assert.deepEqual(call('parseNumFmt', '07/09/2026 13:49:08.001002003'), {
+    mode: 'parts', y: 2026, mo: 7, d: 9, h: 13, mi: 49, s: 8, ms: 1, us: 2, ns: 3,
+  });
+  assert.deepEqual(call('parseIsoFmt', '20260907T134908.999888777Z'), {
+    mode: 'parts', y: 2026, mo: 9, d: 7, h: 13, mi: 49, s: 8, ms: 999, us: 888, ns: 777,
+    tz: { label: 'UTC', value: 'UTC', offset: 0 },
   });
 });

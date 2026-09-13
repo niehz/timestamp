@@ -20,7 +20,7 @@ function applyParsedToFields(pe) {
   if (pe.tz != null) applyParsedTz(pe.tz);
   const tz = inputTzEl.value || timezoneEl.value;
   if (pe.mode === 'parts') {
-    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms, 0, 0);
+    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms || 0, pe.us || 0, pe.ns || 0);
   } else {
     const p = tzParts(new Date(pe.abs), tz);
     if (!p) return;
@@ -57,10 +57,25 @@ function fixedZoneValue(mins) {
 }
 function splitZone(str) {
   const s = str.trim();
-  const m = /([+-]\d{2}:?\d{2}|Z|[A-Z]{1,5})$/i.exec(s);
+  // 组合区令牌："UTC+08:00" / "UTC+8" / "GMT-5:30" / "Z+02:00"。
+  // 必须先于单令牌匹配：否则尾部数值偏移被拆走后，残留 "UTC" 会被 iso 的
+  // Date.parse 捷径当作“纯 UTC 瞬时”解释，外偏移被静默丢弃（如 12:00 UTC+08:00
+  // 会错算成 12:00Z 而非 04:00Z）。
+  let m = /(UTC|GMT|UT|Z)([+-]\d{1,2}(?::?\d{2})?)$/i.exec(s);
+  if (m) {
+    const om = /^([+-])(\d{1,2})(?::?(\d{2}))?$/.exec(m[2]);
+    const hr = +om[2], mn = +(om[3] || 0);
+    if (hr <= 23 && mn <= 59) {
+      const mins = (hr * 60 + mn) * (om[1] === '-' ? -1 : 1);
+      return { base: s.slice(0, m.index).trim(), tz: { label: `${om[1]}${pad(hr)}:${pad(mn)}`, offset: mins, value: fixedZoneValue(mins) } };
+    }
+  }
+  m = /([+-]\d{2}:?\d{2}|Z|[A-Z]{1,5})$/i.exec(s);
   if (!m) return { base: s, tz: null };
-  const base = s.slice(0, m.index).trim();
   const tok = m[1].toUpperCase();
+  // AM/PM 不是时区：剥离会静默丢掉 12 小时语义，保留原文交给解析层处理
+  if (tok === 'AM' || tok === 'PM') return { base: s, tz: null };
+  const base = s.slice(0, m.index).trim();
   let tz = null;
   if (tok === 'Z' || tok === 'GMT' || tok === 'UTC') {
     tz = { label: 'UTC', value: 'UTC', offset: 0 };
@@ -78,7 +93,23 @@ function tzFromDateString(s) {
 }
 
 function toDateStr(y, mo, d, h, mi, se) {
-  return `${y}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
+  return `${formatYear(y)}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
+}
+
+function parseTimeBoxValue(v) {
+  const s = String(v || '').trim();
+  const m = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.\d{1,9})?)?$/);
+  if (!m) return null;
+  const h = +m[1], mi = +m[2], se = m[3] != null ? +m[3] : 0;
+  if (h > 23 || mi > 59 || se > 59) return null;
+  return { h, mi, se };
+}
+
+function timeBoxSubstitute(wallStr, tbp, mode) {
+  if (!wallStr || mode !== 'parts') return { wall: wallStr, keep: false };
+  const m = wallStr.match(/^(-?\d{4,6}-\d{2}-\d{2}) 00:00:00$/);
+  if (!m) return { wall: wallStr, keep: false };
+  return { wall: `${m[1]} ${pad(tbp.h)}:${pad(tbp.mi)}:${pad(tbp.se)}`, keep: true };
 }
 
 const FRAC_DIGITS_BY_TAB = { sec: 0, ms: 3, us: 6, ns: 9 };
@@ -129,7 +160,7 @@ function partsToFrac(ms, us, ns, digits) {
 }
 
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
-  dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
+  dateInput.value = `${formatYear(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
   fracInputEl.value = partsToFrac(ms, us, ns, currentFracDigits());
   
@@ -148,16 +179,22 @@ function setDateToNow() {
 }
 
 function applyFullDateStr(str) {
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/);
+  const m = str.match(/^(-?\d{4,6})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/);
   if (!m) return;
   if (m[4] != null) {
     setDateFields(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6], 0, 0, 0);
   } else {
-    dateInput.value = `${pad(+m[1])}-${pad(+m[2])}-${pad(+m[3])}`;
+    dateInput.value = `${formatYear(+m[1])}-${pad(+m[2])}-${pad(+m[3])}`;
     timeInputEl.value = '';
     fracInputEl.value = '';
     syncClearBtns();
   }
+}
+function applyDateOnly(str) {
+  const m = str.match(/^(-?\d{4,6})-(\d{2})-(\d{2})(?: \d{2}:\d{2}:\d{2})?$/);
+  if (!m) return;
+  dateInput.value = `${m[1]}-${m[2]}-${m[3]}`;
+  syncClearBtns();
 }
 function readDateSelection() {
   const base = dateInput.value.trim();
@@ -187,18 +224,20 @@ function readDateSelection() {
   let ms, us, ns;
   if (fracText) {
     if (!/^\d{1,9}$/.test(fracText)) return { err: true };
-    const p = fracToParts(fracText.slice(0, currentFracDigits() || 9), 9);
+    // 系统精度降级时 frac 输入框隐藏但值可能残留：此时按 0 取读，避免旧值复活
+    const digits = currentFracDigits();
+    const p = fracToParts(digits > 0 ? fracText.slice(0, digits) : '', 9);
     ms = p.ms; us = p.us; ns = p.ns;
   } else if (hasFrac) {
     ms = msF; us = usF; ns = nsF;
   } else {
-    ms = parsed.ms || 0; us = calTime.us || 0; ns = calTime.ns || 0;
+    ms = parsed.ms || 0; us = parsed.us || calTime.us || 0; ns = parsed.ns || calTime.ns || 0;
   }
   return { y: parsed.y, mo: parsed.mo, d: parsed.d, h, mi, se, ms, us, ns };
 }
 
 function applyParsedTz(tzInfo) {
-  if (!tzInfo || !tzInfo.value) return;
+  if (!tzInfo || !tzInfo.value || inputTzEl.value === tzInfo.value) return;
   const apply = () => {
     inputTzCustom = inputTzEl.value !== timezoneEl.value;
     updateDateToTsTitle();
@@ -233,7 +272,12 @@ function buildSuggestions(text) {
     out.push({ date: toDateStr(rel.y, rel.mo, rel.d, 0, 0, 0), desc: t('quick') + ' · ' + s });
   }
 
-  const m = s.match(/^(\d{4})(?:[-/年](\d{1,2}))?(?:[-/月](\d{1,2})(?:日)?)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  // 日期类建议：文本无显式时间且时间框已有值时，带回时间框时间，点击不再把时间归零
+  const hasTextTime = /\d:\d/.test(s);
+  const tbp = parseTimeBoxValue(timeInputEl.value);
+  const defT = tbp && !hasTextTime ? { h: tbp.h, mi: tbp.mi, se: tbp.se, keep: true } : { h: 0, mi: 0, se: 0, keep: false };
+
+  const m = s.match(/^(-?\d{4,6})(?:[-/年](\d{1,2}))?(?:[-/月](\d{1,2})(?:日)?)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (m) {
     const y = +m[1];
     const mo = m[2] != null ? +m[2] : 0;
@@ -242,29 +286,36 @@ function buildSuggestions(text) {
     const mi = m[5] != null ? +m[5] : 0;
     const se = m[6] != null ? +m[6] : 0;
     if (mo >= 1 && mo <= 12) {
-      const dim = new Date(y, mo, 0).getDate();
+      const dim = daysInMonthPro(y, mo);
       if (d >= 1 && d <= dim) {
-        out.push({ date: toDateStr(y, mo, d, h, mi, se), desc: t('useDate') });
-      } else if (d === 0 && mo >= 1 && mo <= 12) {
+        const tm = m[4] != null ? { h, mi, se, keep: false } : defT;
+        out.push({ date: toDateStr(y, mo, d, tm.h, tm.mi, tm.se), desc: t('useDate'), keepTime: tm.keep });
+      } else if (d === 0) {
         out.push({
           month: `${y}-${mo - 1}`,
           date: toDateStr(y, mo, 1, 0, 0, 0),
           desc: `${y}-${pad(mo)} · ${t('quick')}`,
         });
-        out.push({ date: toDateStr(y, mo, 15, 0, 0, 0), desc: `${y}-${pad(mo)}-15` });
-        out.push({ date: toDateStr(y, mo, dim, 0, 0, 0), desc: `${y}-${pad(mo)}-${pad(dim)}` });
+        out.push({ date: toDateStr(y, mo, 15, defT.h, defT.mi, defT.se), desc: `${y}-${pad(mo)}-15`, keepTime: defT.keep });
+        out.push({ date: toDateStr(y, mo, dim, defT.h, defT.mi, defT.se), desc: `${y}-${pad(mo)}-${pad(dim)}`, keepTime: defT.keep });
       }
     } else if (mo === 0) {
-      out.push({ date: toDateStr(y, 1, 1, 0, 0, 0), desc: `${y}-01-01` });
-      out.push({ date: toDateStr(y, now.getMonth() + 1, now.getDate(), 0, 0, 0), desc: `${y}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} (${t('today')})` });
+      out.push({ date: toDateStr(y, 1, 1, defT.h, defT.mi, defT.se), desc: `${y}-01-01`, keepTime: defT.keep });
+      out.push({ date: toDateStr(y, now.getMonth() + 1, now.getDate(), defT.h, defT.mi, defT.se), desc: `${y}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} (${t('today')})`, keepTime: defT.keep });
     }
   }
 
   const pe = parseDateEx(s);
   if (pe) {
-    const wallStr = peWallStr(pe, inputTzEl.value || timezoneEl.value);
+    let wallStr = peWallStr(pe, inputTzEl.value || timezoneEl.value);
+    let keepTime = false;
+    if (wallStr && tbp && !hasTextTime) {
+      const sub = timeBoxSubstitute(wallStr, tbp, pe.mode);
+      if (sub.wall) wallStr = sub.wall;
+      keepTime = sub.keep;
+    }
     if (wallStr && !out.some(i => i.date === wallStr)) {
-      out.push({ date: wallStr, desc: t('useDate') + ' · ' + peSrcName(pe.src) + (pe.tz ? ' ' + pe.tz.label : '') });
+      out.push({ date: wallStr, desc: t('useDate') + ' · ' + peSrcName(pe.src) + (pe.tz ? ' ' + pe.tz.label : ''), keepTime });
     }
   }
 
@@ -280,11 +331,14 @@ function buildSuggestions(text) {
 function showSuggestions() {
   const items = buildSuggestions(dateInput.value);
   if (!items.length) { dateSuggestEl.classList.remove('open'); return; }
-  dateSuggestEl.innerHTML = items.map((it) =>
-    `<div class="sg-item" data-date="${escapeAttr(it.date)}" ${it.month ? `data-month="${escapeAttr(it.month)}"` : ''}>
+  dateSuggestEl.innerHTML = items.map((it) => {
+    const monthAttr = it.month ? ` data-month="${escapeAttr(it.month)}"` : '';
+    const keepAttr = it.keepTime ? ' data-keep-time="1"' : '';
+    return `<div class="sg-item" data-date="${escapeAttr(it.date)}"${monthAttr}${keepAttr}>
       <span class="sg-desc">${escapeAttr(it.desc)}</span>
       <span class="sg-date">${escapeAttr(it.date)}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   dateSuggestEl.classList.add('open');
   dateSuggestEl.dataset.monthMark = items.some((i) => i.month) ? '1' : '';
 }

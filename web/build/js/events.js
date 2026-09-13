@@ -32,6 +32,11 @@ timezoneEl.addEventListener('change', () => {
   updateNow(); 
   renderCalendar(); 
 });
+// 解析/同步路径把 inputTzEl 改为另一时区（applyParsedTz 派发）时，
+// 走与手动 override 相同的全量刷新，避免仅 d2t 生效而 t2d/现在/芯片停留旧时区。
+inputTzEl.addEventListener('change', () => {
+  if (typeof afterTzOverride === 'function') afterTzOverride();
+});
 // —— 输入清洗：时间戳仅允许数字与开头负号；日期/时间剥离千分位逗号等粘贴噪音 ——
 function insertSanitized(el, value) {
   const start = el.selectionStart != null ? el.selectionStart : el.value.length;
@@ -69,8 +74,26 @@ bindPasteFilter(calTimeInputEl, stripSeparators);
 bindInputFilter(calTimeInputEl, stripSeparators);
 bindPasteFilter(calYearInputEl, stripSeparators);
 bindInputFilter(calYearInputEl, stripSeparators);
-bindPasteFilter(tsInput, stripTsNoise);
-bindInputFilter(tsInput, stripTsNoise);
+bindPasteFilter(fracInputEl, stripSeparators);
+bindInputFilter(fracInputEl, stripSeparators);
+// 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
+const MAX_TS_LEN = 20;
+function cleanTsInput(raw) {
+  const s = String(raw == null ? '' : raw);
+  // 小数/科学计数/十六进制不是合法整数时间戳，直接拒绝而非静默削成错值
+  if (/[.eExX]/.test(s)) {
+    toast(lang === 'zh' ? '不支持小数/科学计数法/十六进制时间戳，已忽略' : 'Decimal/scientific/hex timestamps not supported, ignored');
+    return '';
+  }
+  const cleaned = stripTsNoise(s);
+  if (cleaned.length > MAX_TS_LEN) {
+    toast(lang === 'zh' ? '时间戳过长，已截断' : 'Timestamp too long, truncated');
+    return cleaned.slice(0, MAX_TS_LEN);
+  }
+  return cleaned;
+}
+bindPasteFilter(tsInput, cleanTsInput);
+bindInputFilter(tsInput, cleanTsInput);
 tsInput.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key.length !== 1) return;
@@ -144,7 +167,7 @@ calYearHeadEl.addEventListener('click', (e) => {
   if (navBtn && navBtn.dataset.step) {
     e.stopPropagation();
     e.preventDefault();
-    calDecadeStart += +navBtn.dataset.step;
+    calDecadeStart = Math.max(0, Math.min(calDecadeStart + +navBtn.dataset.step, 9990));
     renderCalendar();
   }
 });
@@ -180,6 +203,11 @@ dateSuggestEl.addEventListener('click', (e) => {
     calSelected = { y, mo: mo0, d: parseInt(item.dataset.date.slice(8, 10)) };
     setCalendarMonth(y, mo0);
     openCalendar();
+    return;
+  }
+  if (item.dataset.keepTime) {
+    applyDateOnly(item.dataset.date);
+    renderConvert();
     return;
   }
   const pe = parseDateEx(dateInput.value.trim());
@@ -230,16 +258,27 @@ btnPause.addEventListener('click', () => {
   if (!paused) updateNow();
 });
 
+// 复制成功反馈：给值元素短暂加 .copied（绿色闪烁），不替换文本。
+function flashCopied(el) {
+  if (!el) return;
+  el.classList.add('copied');
+  setTimeout(() => el.classList.remove('copied'), 900);
+}
+
 document.addEventListener('click', (e) => {
   if (e.target.closest('.t2d-popover, .d2t-ambig-popover')) return;
   const block = e.target.closest('.result-block');
   if (block) {
     const val = block.querySelector('.result-value');
-    if (val && val.dataset.value) copyText(val.textContent.trim(), null);
+    if (val && val.dataset.value) { copyText(val.textContent.trim()); flashCopied(val); }
     return;
   }
   const item = e.target.closest('.now-item.clickable');
-  if (item) { copyText(item.querySelector('.now-value').textContent, null); return; }
+  if (item) {
+    const val = item.querySelector('.now-value');
+    if (val) copyText(val.textContent);
+    flashCopied(val);
+  }
 });
 
 let popoverHideTimer = null;
@@ -263,7 +302,8 @@ t2dPopoverEl.addEventListener('mouseenter', () => {
 t2dPopoverEl.addEventListener('click', (e) => {
   const item = e.target.closest('.t2d-pop-item');
   if (!item) return;
-  copyText(item.dataset.value, null);
+  copyText(item.dataset.value);
+  flashCopied(item.querySelector('.t2d-pop-val'));
   hideT2dPopover();
 });
 
@@ -445,28 +485,70 @@ updateNow();
 initTimestampInput();
 initCsb();
 
-if (window.utools) {
-  utools.onPluginEnter(({ payload }) => {
-    const p = payload && payload.trim();
-    if (!p) { initTimestampInput(); tsInput.focus(); return; }
-    if (/^\d{19}$/.test(p)) { switchTab('ns'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{16}$/.test(p)) { switchTab('us'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
-    else {
-      const pe = parseDateEx(p);
-      if (pe) {
-        applyParsedToFields(pe);
-        timeInputEl.focus();
-        renderConvert();
-      } else {
-        initTimestampInput();
-      }
+// 进入载荷归一化（纯函数，供 onPluginEnter / 桌面 URL payload 共用）：
+// 数字（含负号/千分位/空格噪音）→ ts；可解析日期 → date；否则 clipboard 兜底。
+function normalizeEnterPayload(payload) {
+  let p = String(payload == null ? '' : payload).trim();
+  if (!p) return { kind: 'empty' };
+  const pre = p.match(/^(?:ts|时间戳|timestamp|date|日期|时间|秒|毫秒|微秒|纳秒)\s*[:：]?\s*(.+)$/i);
+  if (pre) p = pre[1].trim();
+  const isDigitLike = /^\d+([\s,'\u00A0\u202F]\d+)*$/.test(p) || /^-\d+([\s,'\u00A0\u202F]\d+)*$/.test(p);
+  if (isDigitLike) {
+    const neg = /^-/.test(p);
+    const digits = p.replace(/-/g, '').replace(/[\s,'\u00A0\u202F\u200B\u2060\uFEFF]/g, '');
+    const isStandardLen = digits.length === 19 || digits.length === 16 || digits.length === 13 || digits.length === 10;
+    if (isStandardLen) {
+      let tab = null;
+      if (digits.length === 19) tab = 'ns';
+      else if (digits.length === 16) tab = 'us';
+      else if (digits.length === 13) tab = 'ms';
+      else if (digits.length === 10) tab = 'sec';
+      return { kind: 'ts', value: (neg ? '-' : '') + digits, tab };
     }
+    // 非整码长度：优先按日期解析（如 "2026" 年份），解析不了再按当前 tab 填充数字
+    const pe = parseDateEx(p);
+    if (pe) return { kind: 'date', parts: pe };
+    return { kind: 'ts', value: (neg ? '-' : '') + digits, tab: null };
+  }
+  const pe = parseDateEx(p);
+  if (pe) return { kind: 'date', parts: pe };
+  return { kind: 'clipboard' };
+}
+
+function handleEnterPayload(payload) {
+  const r = normalizeEnterPayload(payload);
+  if (r.kind === 'empty') { initTimestampInput(); tsInput.focus(); return; }
+  if (r.kind === 'ts') {
+    tsInput.value = r.value;
+    if (r.tab) switchTab(r.tab);
+    renderReverse();
     tsInput.focus();
-  });
+    return;
+  }
+  if (r.kind === 'date') {
+    applyParsedToFields(r.parts);
+    timeInputEl.focus();
+    renderConvert();
+    return;
+  }
+  initTimestampInput();
+  tsInput.focus();
+}
+
+if (window.utools) {
+  utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
   try { utools.setExpendHeight(560); } catch (e) {}
 }
+// 桌面壳 / 浏览器直开：解析 URL ?payload= / ?ts=（Electron main.js 经 --payload= 传入；
+// 真 uTools 环境无 tsShell 且 payload 走 onPluginEnter，跳过避免重复填充）
+;(function () {
+  if (typeof window.tsShell === 'undefined' && typeof window.utools !== 'undefined') return;
+  try {
+    const q = new URLSearchParams(location.search);
+    const payload = q.get('payload') ?? q.get('ts');
+    if (payload != null) handleEnterPayload(payload);
+  } catch (e) {}
+})();
 
 // 延迟初始化双滚轮时区选择器，避免阻塞（uTools 与浏览器直接打开均可用）
 setTimeout(() => {

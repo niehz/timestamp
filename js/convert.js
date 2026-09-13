@@ -7,6 +7,19 @@
 
 // D2T 卡片最近一次计算的候选瞬时（供歧义下拉悬停时重建浮层）。
 let lastD2tCandidates = [];
+// 用户在歧义浮层选中的瞬时：{ key, ms }，key 绑定“墙钟+亚秒+输入时区”，
+// 输入不变则重渲染复用该选择，避免任何无关重渲染静默回退到默认（较早）候选。
+let lastD2tSel = null;
+function d2tKeyOf(sel) {
+  if (!sel || sel.empty || sel.err || sel.kind === 'abs') return null;
+  return `${sel.y}-${sel.mo}-${sel.d} ${sel.h}:${sel.mi}:${sel.se || 0}.${sel.ms || 0}.${sel.us || 0}.${sel.ns || 0}@${inputTzEl.value || timezoneEl.value}`;
+}
+function pickD2tMs(candidates, lastSel, key, fallbackMs) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  if (list.length < 2) return fallbackMs;
+  if (lastSel && lastSel.key === key && list.includes(lastSel.ms)) return lastSel.ms;
+  return list[0];
+}
 
 function setResult(valEl, text, state) {
   valEl.dataset.value = state === 'empty' || state === 'err' ? '' : (valEl.dataset.value || '');
@@ -28,6 +41,8 @@ function renderConvert() {
   const isUs = currentTab === 'us';
   const isNs = currentTab === 'ns';
   const sel = readDateSelection();
+  const selKey = d2tKeyOf(sel);
+  if (lastD2tSel && lastD2tSel.key !== selKey) lastD2tSel = null;
   d2tVal.dataset.value = '';
   lastD2tCandidates = [];
   clearD2tAmbig();
@@ -70,6 +85,9 @@ function renderConvert() {
     renderAmbigPopover();
     if (typeof renderOffsetChips === 'function') renderOffsetChips();
     return;
+  }
+  if (lastD2tCandidates.length >= 2) {
+    ms = pickD2tMs(lastD2tCandidates, lastD2tSel, selKey, ms);
   }
   const secVal = String(Math.floor(ms / 1000));
   const msVal = String(ms);
@@ -115,7 +133,7 @@ function clearD2tAmbig() {
 }
 
 // 依据 lastD2tCandidates 重建歧义浮层。<2 个候选时隐藏并清理。
-function renderAmbigPopover() {
+function renderAmbigPopover(sel) {
   const pop = d2tAmbigPopoverEl;
   const block = d2tResultEl;
   if (!pop || !block) return;
@@ -126,6 +144,9 @@ function renderAmbigPopover() {
     block.classList.remove('show-ambig');
     return;
   }
+  const s = sel || readDateSelection();
+  const us = (s && s.us) || 0;
+  const ns = (s && s.ns) || 0;
   const tz = activeTz();
   const cur = currentD2tMs();
   pop.innerHTML = cands.map((c) => {
@@ -133,7 +154,7 @@ function renderAmbigPopover() {
     const tag = c === cands[0] ? t('ambigEarlier') : t('ambigLater');
     const off = offsetLabel(tz, new Date(c));
     const utcWall = formatWithTokens(c, 'UTC', DATE_FMT_DEFAULT_CONST);
-    const sub = epochSubFromMs(c, 0, 0);
+    const sub = epochSubFromMs(c, us % 1000, ns % 1000);
     let tsText;
     if (currentTab === 'sec') tsText = String(Math.floor(c / 1000)) + ' s';
     else if (currentTab === 'ms') tsText = String(c) + ' ms';
@@ -156,6 +177,8 @@ function selectD2tCandidate(msCand) {
   const isUs = currentTab === 'us';
   const isNs = currentTab === 'ns';
   const sel = readDateSelection();
+  const selKey = d2tKeyOf(sel);
+  if (selKey !== null) lastD2tSel = { key: selKey, ms: msCand };
   const us = (sel && sel.us) || 0;
   const ns = (sel && sel.ns) || 0;
   const secVal = String(Math.floor(msCand / 1000));
@@ -341,7 +364,7 @@ function fmtAlias(fmt) {
 }
 function loadDateFmtCustom() {
   try {
-    const raw = localStorage.getItem('date_fmt_custom');
+    const raw = safeGet('date_fmt_custom');
     const a = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(a)) return [];
     return a.map(x => typeof x === 'string' ? { label: x, fmt: x } : { label: x.label || x.fmt, fmt: x.fmt }).filter(x => x.fmt);
@@ -349,7 +372,7 @@ function loadDateFmtCustom() {
 }
 function loadDateFmtEnabled() {
   try {
-    const raw = localStorage.getItem('date_fmt_enabled');
+    const raw = safeGet('date_fmt_enabled');
     if (raw) {
       const a = JSON.parse(raw);
       if (Array.isArray(a)) {
@@ -362,7 +385,7 @@ function loadDateFmtEnabled() {
 }
 function loadDateFmtOrder() {
   try {
-    const raw = localStorage.getItem('date_fmt_order');
+    const raw = safeGet('date_fmt_order');
     if (raw) {
       const a = JSON.parse(raw);
       if (Array.isArray(a) && a.length) {
@@ -383,10 +406,10 @@ function normalizeOrder() {
   DATE_FMT_ORDER = enabled.concat(others);
 }
 function saveDateFmtConfig() {
-  localStorage.setItem('date_fmt_custom', JSON.stringify(DATE_FMT_CUSTOM));
-  localStorage.setItem('date_fmt_enabled', JSON.stringify([...DATE_FMT_ENABLED]));
+  safeSet('date_fmt_custom', JSON.stringify(DATE_FMT_CUSTOM));
+  safeSet('date_fmt_enabled', JSON.stringify([...DATE_FMT_ENABLED]));
   normalizeOrder();
-  localStorage.setItem('date_fmt_order', JSON.stringify(DATE_FMT_ORDER));
+  safeSet('date_fmt_order', JSON.stringify(DATE_FMT_ORDER));
 }
 function allDateFmts() {
   return [...DATE_FMT_PRESETS, ...DATE_FMT_CUSTOM];
@@ -552,9 +575,6 @@ function initCustomParseConfig() {
       if (CUSTOM_PARSE_RULES.some(r => r.pattern === pattern && r.type === type)) {
         toast(lang === 'zh' ? '该规则已存在' : 'Rule already exists');
         return;
-      }
-      if (type === 'placeholder' && !/[YMDHS]/.test(pattern.replace(/[hms]/g, '') ) && !/[YMDHms]/.test(pattern)) {
-        // avoid pointless rules; still allow
       }
       CUSTOM_PARSE_RULES.push({ id: 'c' + Date.now().toString(36), label: label || pattern, pattern, type });
       saveDateParseSettings();
@@ -771,6 +791,7 @@ function renderCustomFmtList() {
 function saveEditCustomFormat(idx, item) {
   if (idx < 0 || idx >= DATE_FMT_CUSTOM.length) return;
   const c = DATE_FMT_CUSTOM[idx];
+  const oldFmt = c.fmt;
   const newLabel = (item.querySelector('.edit-label').value || '').trim();
   const newFmt = (item.querySelector('.edit-fmt').value || '').trim();
   if (!newFmt) { toast(lang === 'zh' ? '格式不能为空' : 'Format is required'); return; }
@@ -778,8 +799,16 @@ function saveEditCustomFormat(idx, item) {
     toast(lang === 'zh' ? '格式已存在' : 'Duplicate format');
     return;
   }
+  // fmt 被改名时，旧 fmt 必须从启用集/排序表同步移除，否则留下幽灵格式
+  //（defaultDateFmt/currentDateFormats 仍会读到已不存在的 DATE_FMT_CUSTOM 项）
+  if (oldFmt !== newFmt) {
+    DATE_FMT_ENABLED.delete(oldFmt);
+    DATE_FMT_ORDER = DATE_FMT_ORDER.filter(f => f !== oldFmt);
+    c.fmt = newFmt;
+    if (DATE_FMT_ENABLED.size < DATE_FMT_MAX_ENABLED) DATE_FMT_ENABLED.add(newFmt);
+    if (!DATE_FMT_ORDER.includes(newFmt)) DATE_FMT_ORDER.push(newFmt);
+  }
   c.label = newLabel || newFmt;
-  c.fmt = newFmt;
   fmtEditingIndex = -1;
   saveDateFmtConfig();
   renderCustomFmtList();

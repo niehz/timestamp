@@ -22,3 +22,7 @@ reports/
 # 推理过程中间分析文档不入库
 analysis/
 analysis-deep/
+analysis-v2/
+
+# 前端镜像同步状态（内容哈希/缓存戳快照）
+dev/scripts/.sync-state.json

@@ -5,12 +5,18 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+// 输出可直接被解析回读的历元年份：至少 4 位补零、负数带符号（0 → 0000，-5 → -0005，66 → 0066）。
+function formatYear(y) {
+  const n = Number(y);
+  return (n < 0 ? '-' : '') + String(Math.abs(n)).padStart(4, '0');
+}
+
 function formatLocal(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return `${formatYear(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function formatUTC(date) {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  return `${formatYear(date.getUTCFullYear())}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
 }
 
 const tzFormatters = new Map();
@@ -31,7 +37,7 @@ function formatTz(date, tz) {
   if (fx) {
     const offMins = ((+fx[2] * 3600 + +fx[3] * 60 + (+fx[4] || 0)) / 60) * (fx[1] === '-' ? -1 : 1);
     const t = new Date(date.getTime() + Math.round(offMins * 60000));
-    return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+    return `${formatYear(t.getUTCFullYear())}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
   }
   
   // IANA 时区：引擎缺失历史数据时使用内置回退偏移（正常引擎直接走下方 Intl，精确到秒）
@@ -39,7 +45,7 @@ function formatTz(date, tz) {
     const fallback = getHistoricalOffset(date, tz);
     if (fallback != null) {
       const t = new Date(date.getTime() + Math.round(fallback * 60000));
-      return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+      return `${formatYear(t.getUTCFullYear())}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
     }
   }
   
@@ -47,7 +53,7 @@ function formatTz(date, tz) {
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
     const y = new Date(ianaWallMs(date.getTime(), m)).getUTCFullYear();
-    return `${y}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
+    return `${formatYear(y)}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
   } catch (e) { return '--'; }
 }
 
@@ -91,7 +97,7 @@ function formatWithTokens(ms, tz, fmt) {
   const hour12 = p.h % 12 === 0 ? 12 : p.h % 12;
   const ap = p.h < 12 ? 'AM' : 'PM';
   const map = {
-    YYYY: String(p.y), YY: String(Math.abs(p.y)).slice(-2), MM: pad(p.mo), DD: pad(p.d),
+    YYYY: formatYear(p.y), YY: String(Math.abs(p.y)).slice(-2), MM: pad(p.mo), DD: pad(p.d),
     HH: pad(p.h), hh: pad(hour12), mm: pad(p.mi), ss: pad(p.se), SSS: String(p.ms).padStart(3, '0'),
     A: ap, a: ap.toLowerCase(), W: WEEK_CN[WEEK_EN[p.wd]] || '', WD: WEEK_EN[p.wd] || '',
     Z: offsetLabel(tz, new Date(ms)),
@@ -369,7 +375,7 @@ const DATE_PARSE_FORMATS = [
 ];
 function loadDateParseSettings() {
   try {
-    const raw = localStorage.getItem('date_parse_settings');
+    const raw = safeGet('date_parse_settings');
     if (raw) {
       const o = JSON.parse(raw);
       const ids = DATE_PARSE_FORMATS.map(f => f.id);
@@ -392,32 +398,52 @@ let DATE_PARSE_ENABLED = _dateParseCfg.enabled;
 let dateParseStyle = _dateParseCfg.style;
 let CUSTOM_PARSE_RULES = _dateParseCfg.custom;
 function saveDateParseSettings() {
-  localStorage.setItem('date_parse_settings', JSON.stringify({ enabled: [...DATE_PARSE_ENABLED], style: dateParseStyle, custom: CUSTOM_PARSE_RULES }));
+  safeSet('date_parse_settings', JSON.stringify({ enabled: [...DATE_PARSE_ENABLED], style: dateParseStyle, custom: CUSTOM_PARSE_RULES }));
+}
+function fracSplit(f) {
+  if (f == null) return { ms: 0, us: 0, ns: 0 };
+  const s = String(f).split('.')[1] || String(f);
+  const p = (s + '000000000').slice(0, 9);
+  return { ms: +p.slice(0, 3) || 0, us: +p.slice(3, 6) || 0, ns: +p.slice(6, 9) || 0 };
 }
 function fracToMs(f) {
-  if (f == null) return 0;
-  const s = String(f).split('.')[1] || String(f);
-  return Math.round(Number('0.' + s.slice(0, 3).padEnd(3, '0')) * 1000);
+  return fracSplit(f).ms;
+}
+// proleptic Gregorian 闰年：JS 的 % 对负年份取余仍满足整除性，-4 闰、-100 平、-400 闰均正确。
+function isProlepticLeap(y) {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+function daysInMonthPro(y, mo) {
+  if (mo === 2 && isProlepticLeap(y)) return 29;
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
 }
 function validYmd(y, mo, d) {
-  return y >= 1 && y <= 9999 && mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
+  return Number.isInteger(y) && y >= YEAR_MIN && y <= YEAR_MAX
+    && mo >= 1 && mo <= 12
+    && d >= 1 && d <= daysInMonthPro(y, mo);
+}
+function meridiemHour(h, ap) {
+  if (!ap) return h;
+  const a = String(ap).toUpperCase();
+  if (a === 'PM') return (h % 12) + 12;
+  return h === 12 ? 0 : h;
 }
 function parseIsoFmt(s) {
   const tzInfo = tzFromDateString(s);
   const explicit = tzInfo && (tzInfo.value === 'UTC' || tzInfo.offset != null);
-  const compact = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2}):?(\d{2})(?::?(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i);
+  const compact = s.match(/^(\d{4,6})(\d{2})(\d{2})T(\d{2}):?(\d{2})(?::?(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i);
   if (compact) {
     const y = +compact[1], mo = +compact[2], d = +compact[3];
     const h = +compact[4], mi = +compact[5], se = compact[6] != null ? +compact[6] : 0;
-    const ms = fracToMs(compact[7]);
+    const fr = fracSplit(compact[7]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
     const zone = compact[8];
-    if (!zone) return { mode: 'parts', y, mo, d, h, mi, s: se, ms };
-    if (/^z$/i.test(zone)) return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: 'UTC', value: 'UTC', offset: 0 } };
+    if (!zone) return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
+    if (/^z$/i.test(zone)) return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns, tz: { label: 'UTC', value: 'UTC', offset: 0 } };
     const om = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
     if (om) {
       const offset = (+om[2] * 60 + +om[3]) * (om[1] === '-' ? -1 : 1);
-      return { mode: 'parts', y, mo, d, h, mi, s: se, ms, tz: { label: `${om[1]}${om[2]}:${om[3]}`, offset, value: `FIXED:${om[1]}${om[2]}${om[3]}` } };
+      return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns, tz: { label: `${om[1]}${om[2]}:${om[3]}`, offset, value: `FIXED:${om[1]}${om[2]}${om[3]}` } };
     }
     return null;
   }
@@ -429,30 +455,41 @@ function parseIsoFmt(s) {
   return null;
 }
 function parseYmdFmt(s) {
-  if (/^\d{4}$/.test(s)) {
+  const yOnly = s.match(/^(-?\d{4,6})$/);
+  if (yOnly) {
+    const y = +yOnly[1];
+    if (!validYmd(y, 1, 1)) return null; // 越出时间戳 SAFE 区间拒绝（0 年及负年由 era 函数原生支持）
     const now = new Date();
-    return { mode: 'parts', y: +s, mo: now.getMonth() + 1, d: now.getDate(), h: 0, mi: 0, s: 0, ms: 0 };
+    return { mode: 'parts', y, mo: now.getMonth() + 1, d: now.getDate(), h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const ym = s.match(/^(\d{4})[-/年](\d{1,2})月?$/);
+  // 年份允许 1-6 位；短年份（1-3 位）按字面历元年（0 年即 "00"）。若该串能被数字格式
+  // （mm/dd yy / dd/mm yy → 19xx/20xx）吃下，则让给数字格式，保持原有语义。
+  const shortYearDefer = (s0, y) => y >= 0 && y < 1000 && parseNumFmt(s0) != null;
+  const ym = s.match(/^(-?\d{4,6}|\d{1,3})[-/年](\d{1,2})月?$/);
   if (ym) {
     const y = +ym[1], mo = +ym[2];
     if (!validYmd(y, mo, 1)) return null;
+    if (shortYearDefer(s, y)) return null;
     return { mode: 'parts', y, mo, d: 1, h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const m = s.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(-?\d{4,6}|\d{1,3})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
-  const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  const h = meridiemHour(h0, m[8]);
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+  if (shortYearDefer(s, y)) return null;
+  const fr = fracSplit(m[7]);
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
 }
 function parseCjkFmt(s) {
-  const m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(-?\d{4,6}|\d{1,3})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
   const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+  const fr = fracSplit(m[7]);
+  return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
 }
 function parseRfcmFmt(s) {
   if (!/[A-Za-z]{3,}/.test(s)) return null;
@@ -461,24 +498,28 @@ function parseRfcmFmt(s) {
   return { mode: 'abs', abs: t, tz: tzFromDateString(s) || null };
 }
 function parseNumFmt(s) {
-  const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (m) {
     let y = +m[3];
     if (y < 100) y += y < 70 ? 2000 : 1900;
     const a = +m[1], b = +m[2];
     const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
-    const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+    const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+    const h = meridiemHour(h0, m[8]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
+    const fr = fracSplit(m[7]);
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
   }
-  const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (yl) {
     const a = +yl[1], b = +yl[2];
     const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
     const y = new Date().getFullYear();
-    const h = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
+    const h0 = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
+    const h = meridiemHour(h0, yl[7]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
-    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(yl[6]) };
+    const fr = fracSplit(yl[6]);
+    return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
   }
   return null;
 }
@@ -491,7 +532,7 @@ function parseCustomPlaceholder(pattern, s) {
   let m;
   while ((m = tokenRe.exec(pattern)) !== null) {
     const tok = m[0];
-    if (tok === 'YYYY') { fields.push({ k: 'y', i: fields.length + 1 }); regexStr += '(\\d{4})'; }
+    if (tok === 'YYYY') { fields.push({ k: 'y', i: fields.length + 1 }); regexStr += '(-?\\d{4,6})'; }
     else if (tok === 'YY') { fields.push({ k: 'yy', i: fields.length + 1 }); regexStr += '(\\d{2})'; }
     else if (tok === 'MM') { fields.push({ k: 'mo', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
     else if (tok === 'DD') { fields.push({ k: 'd', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
