@@ -32,11 +32,11 @@ function renderCalendar() {
 function syncViewInput() {
   if (calView === 'day') {
     const d = (calSelected && calSelected.y === calYear && calSelected.mo === calMonth) ? calSelected.d : 1;
-    calYearInputEl.value = `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
+    calYearInputEl.value = `${formatYear(calYear)}-${pad(calMonth + 1)}-${pad(d)}`;
   } else if (calView === 'month') {
-    calYearInputEl.value = `${calYear}-${pad(calMonth + 1)}`;
+    calYearInputEl.value = `${formatYear(calYear)}-${pad(calMonth + 1)}`;
   } else {
-    calYearInputEl.value = `${calYear}`;
+    calYearInputEl.value = `${formatYear(calYear)}`;
   }
 }
 

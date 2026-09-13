@@ -93,7 +93,7 @@ function tzFromDateString(s) {
 }
 
 function toDateStr(y, mo, d, h, mi, se) {
-  return `${y}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
+  return `${formatYear(y)}-${pad(mo)}-${pad(d)} ${pad(h)}:${pad(mi)}:${pad(se)}`;
 }
 
 function parseTimeBoxValue(v) {
@@ -160,7 +160,7 @@ function partsToFrac(ms, us, ns, digits) {
 }
 
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
-  dateInput.value = `${pad(y)}-${pad(mo)}-${pad(d)}`;
+  dateInput.value = `${formatYear(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
   fracInputEl.value = partsToFrac(ms, us, ns, currentFracDigits());
   
@@ -184,7 +184,7 @@ function applyFullDateStr(str) {
   if (m[4] != null) {
     setDateFields(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6], 0, 0, 0);
   } else {
-    dateInput.value = `${pad(+m[1])}-${pad(+m[2])}-${pad(+m[3])}`;
+    dateInput.value = `${formatYear(+m[1])}-${pad(+m[2])}-${pad(+m[3])}`;
     timeInputEl.value = '';
     fracInputEl.value = '';
     syncClearBtns();

@@ -5,12 +5,18 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+// 输出可直接被解析回读的历元年份：至少 4 位补零、负数带符号（0 → 0000，-5 → -0005，66 → 0066）。
+function formatYear(y) {
+  const n = Number(y);
+  return (n < 0 ? '-' : '') + String(Math.abs(n)).padStart(4, '0');
+}
+
 function formatLocal(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return `${formatYear(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function formatUTC(date) {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  return `${formatYear(date.getUTCFullYear())}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
 }
 
 const tzFormatters = new Map();
@@ -31,7 +37,7 @@ function formatTz(date, tz) {
   if (fx) {
     const offMins = ((+fx[2] * 3600 + +fx[3] * 60 + (+fx[4] || 0)) / 60) * (fx[1] === '-' ? -1 : 1);
     const t = new Date(date.getTime() + Math.round(offMins * 60000));
-    return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+    return `${formatYear(t.getUTCFullYear())}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
   }
   
   // IANA 时区：引擎缺失历史数据时使用内置回退偏移（正常引擎直接走下方 Intl，精确到秒）
@@ -39,7 +45,7 @@ function formatTz(date, tz) {
     const fallback = getHistoricalOffset(date, tz);
     if (fallback != null) {
       const t = new Date(date.getTime() + Math.round(fallback * 60000));
-      return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+      return `${formatYear(t.getUTCFullYear())}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
     }
   }
   
@@ -47,7 +53,7 @@ function formatTz(date, tz) {
   try {
     const m = partsMap(getTzFormatter(tz).formatToParts(date));
     const y = new Date(ianaWallMs(date.getTime(), m)).getUTCFullYear();
-    return `${y}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
+    return `${formatYear(y)}-${m.month}-${m.day} ${pad(m.hour % 24)}:${m.minute}:${m.second}`;
   } catch (e) { return '--'; }
 }
 
@@ -91,7 +97,7 @@ function formatWithTokens(ms, tz, fmt) {
   const hour12 = p.h % 12 === 0 ? 12 : p.h % 12;
   const ap = p.h < 12 ? 'AM' : 'PM';
   const map = {
-    YYYY: String(p.y), YY: String(Math.abs(p.y)).slice(-2), MM: pad(p.mo), DD: pad(p.d),
+    YYYY: formatYear(p.y), YY: String(Math.abs(p.y)).slice(-2), MM: pad(p.mo), DD: pad(p.d),
     HH: pad(p.h), hh: pad(hour12), mm: pad(p.mi), ss: pad(p.se), SSS: String(p.ms).padStart(3, '0'),
     A: ap, a: ap.toLowerCase(), W: WEEK_CN[WEEK_EN[p.wd]] || '', WD: WEEK_EN[p.wd] || '',
     Z: offsetLabel(tz, new Date(ms)),
@@ -456,23 +462,28 @@ function parseYmdFmt(s) {
     const now = new Date();
     return { mode: 'parts', y, mo: now.getMonth() + 1, d: now.getDate(), h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const ym = s.match(/^(-?\d{4,6})[-/年](\d{1,2})月?$/);
+  // 年份允许 1-6 位；短年份（1-3 位）按字面历元年（0 年即 "00"）。若该串能被数字格式
+  // （mm/dd yy / dd/mm yy → 19xx/20xx）吃下，则让给数字格式，保持原有语义。
+  const shortYearDefer = (s0, y) => y >= 0 && y < 1000 && parseNumFmt(s0) != null;
+  const ym = s.match(/^(-?\d{4,6}|\d{1,3})[-/年](\d{1,2})月?$/);
   if (ym) {
     const y = +ym[1], mo = +ym[2];
     if (!validYmd(y, mo, 1)) return null;
+    if (shortYearDefer(s, y)) return null;
     return { mode: 'parts', y, mo, d: 1, h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const m = s.match(/^(-?\d{4,6})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
+  const m = s.match(/^(-?\d{4,6}|\d{1,3})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
   const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
   const h = meridiemHour(h0, m[8]);
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
+  if (shortYearDefer(s, y)) return null;
   const fr = fracSplit(m[7]);
   return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
 }
 function parseCjkFmt(s) {
-  const m = s.match(/^(-?\d{4,6})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(-?\d{4,6}|\d{1,3})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
   const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;

@@ -10,6 +10,15 @@ test('pad pads to 2 digits', () => {
   assert.equal(call('pad', 0), '00');
 });
 
+test('formatYear renders parseable era years (>=4 digits, signed)', () => {
+  assert.equal(call('formatYear', 2026), '2026');
+  assert.equal(call('formatYear', 66), '0066');
+  assert.equal(call('formatYear', 0), '0000');
+  assert.equal(call('formatYear', -5), '-0005');
+  assert.equal(call('formatYear', -20000), '-20000');
+  assert.equal(call('formatYear', 275759), '275759');
+});
+
 test('stripTsNoise keeps digits and one leading minus only', () => {
   assert.equal(call('stripTsNoise', '1,754,003,672'), '1754003672');
   assert.equal(call('stripTsNoise', '1 754 003 672'), '1754003672');
