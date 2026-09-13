@@ -344,16 +344,8 @@ function applyWheelTime() {
 function clampWheel(i, max) { return i < 0 ? 0 : (i > max ? max : i); }
 
 function highlightWheel(el, idx) {
-  
   Array.prototype.forEach.call(el.children, (c, i) => {
-    const wasSel = c.classList.contains('sel');
-    const willBeSel = i === idx;
-    c.classList.toggle('sel', willBeSel);
-    
-    if (wasSel !== willBeSel) {
-      if (willBeSel) {
-      }
-    }
+    c.classList.toggle('sel', i === idx);
   });
 }
 
@@ -530,8 +522,4 @@ function updateNow() {
   
   // 同步「现在」偏移芯片（DST 边界或长暂停后可能过期）
   if (typeof refreshNowChip === 'function') refreshNowChip();
-  
-  // 每秒输出一次毫秒变化信息
-  if (lastUpdateTime % 1000 < 50) {
-  }
 }
