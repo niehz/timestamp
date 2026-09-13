@@ -192,6 +192,11 @@ dateSuggestEl.addEventListener('click', (e) => {
     openCalendar();
     return;
   }
+  if (item.dataset.keepTime) {
+    applyDateOnly(item.dataset.date);
+    renderConvert();
+    return;
+  }
   const pe = parseDateEx(dateInput.value.trim());
   const wallStr = peWallStr(pe, inputTzEl.value || timezoneEl.value);
   if (pe && (pe.mode === 'abs' || wallStr === item.dataset.date)) {
