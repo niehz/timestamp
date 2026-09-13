@@ -97,10 +97,13 @@ function renderYears() {
 
   calYearsEl.innerHTML = '';
   for (let y = calDecadeStart; y <= calDecadeStart + 9; y++) {
-    const btn = el('button', 'cal-year', String(y));
+    const off = y < 1 || y > 9999;
+    const btn = el('button', 'cal-year' + (off ? ' off' : ''), String(y));
     if (y === calYear) btn.classList.add('selected');
     const cur = new Date().getFullYear();
     if (y === cur) btn.classList.add('today');
+    // 0 年与越界年份不可选：选中会写入 0000-… 使转换显示“日期格式无效”
+    if (off) { calYearsEl.appendChild(btn); continue; }
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       calYear = y;
@@ -415,12 +418,18 @@ function setCalendarMonth(year, month) {
 
 function calNavigate(dir) {
   if (calView === 'day') {
-    setCalendarMonth(calMonth + dir < 0 ? calYear - 1 : (calMonth + dir > 11 ? calYear + 1 : calYear), (calMonth + dir + 12) % 12);
+    let y = calYear, mo = calMonth;
+    if (calMonth + dir < 0) { y = calYear - 1; mo = 11; }
+    else if (calMonth + dir > 11) { y = calYear + 1; mo = 0; }
+    else { mo = calMonth + dir; }
+    if (y < 1 || y > 9999) return; // 0 年前与 9999 年后不可达
+    setCalendarMonth(y, mo);
   } else if (calView === 'month') {
+    if (calYear + dir < 1 || calYear + dir > 9999) return;
     calYear += dir;
     renderCalendar();
   } else if (calView === 'year') {
-    calDecadeStart += dir * 10;
+    calDecadeStart = Math.max(0, Math.min(calDecadeStart + dir * 10, 9990));
     renderCalendar();
   }
 }

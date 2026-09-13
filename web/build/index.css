@@ -233,6 +233,8 @@ body.tab-ns .cal-right{min-width:220px}
 .cal-years{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
 .cal-year{flex:1 0 31%;box-sizing:border-box;border:none;background:var(--bg);color:var(--text);font-size:13px;text-align:center;padding:10px 0;border-radius:10px;cursor:pointer;transition:background .12s,color .12s;font-family:var(--mono)}
 .cal-year:hover{background:var(--accent-soft);color:var(--text)}
+.cal-year.off{opacity:.35;cursor:not-allowed;pointer-events:none;background:var(--bg)}
+.cal-year.off:hover{background:var(--bg);color:var(--text)}
 .cal-year.today{color:var(--accent2);font-weight:600}
 .cal-year.selected{background:linear-gradient(135deg,var(--accent),#3d7dff);color:#fff;font-weight:600;box-shadow:0 4px 14px rgba(91,154,255,0.35)}
 .cal-year-head{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:10px}

@@ -167,7 +167,7 @@ calYearHeadEl.addEventListener('click', (e) => {
   if (navBtn && navBtn.dataset.step) {
     e.stopPropagation();
     e.preventDefault();
-    calDecadeStart += +navBtn.dataset.step;
+    calDecadeStart = Math.max(0, Math.min(calDecadeStart + +navBtn.dataset.step, 9990));
     renderCalendar();
   }
 });
