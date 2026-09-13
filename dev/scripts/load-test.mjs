@@ -7,7 +7,7 @@
 // stub is provided so load-time rendering/binding code paths can run.
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
@@ -165,7 +165,20 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(1);
   }
   const jsDir = resolve(ROOT, 'js');
-  const extra = readdirSync(jsDir).filter(f => f.endsWith('.js') && !ORDER.includes(f.replace(/\.js$/, '')));
+  const walkJs = (dir) => {
+    const files = [];
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const rel = resolve(dir, ent.name);
+      if (ent.isDirectory()) {
+        if (ent.name === 'timezone') continue;
+        files.push(...walkJs(rel));
+      } else if (ent.name.endsWith('.js')) {
+        files.push(relative(jsDir, rel).replace(/\\/g, '/').replace(/\.js$/, ''));
+      }
+    }
+    return files;
+  };
+  const extra = walkJs(jsDir).filter(f => !ORDER.includes(f));
   if (extra.length) console.warn(`Extra .js files not in load order (ignored): ${extra.join(', ')}`);
 
   try {
