@@ -20,7 +20,7 @@ function applyParsedToFields(pe) {
   if (pe.tz != null) applyParsedTz(pe.tz);
   const tz = inputTzEl.value || timezoneEl.value;
   if (pe.mode === 'parts') {
-    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms, 0, 0);
+    setDateFields(pe.y, pe.mo, pe.d, pe.h, pe.mi, pe.s, pe.ms || 0, pe.us || 0, pe.ns || 0);
   } else {
     const p = tzParts(new Date(pe.abs), tz);
     if (!p) return;
@@ -224,12 +224,14 @@ function readDateSelection() {
   let ms, us, ns;
   if (fracText) {
     if (!/^\d{1,9}$/.test(fracText)) return { err: true };
-    const p = fracToParts(fracText.slice(0, currentFracDigits() || 9), 9);
+    // 系统精度降级时 frac 输入框隐藏但值可能残留：此时按 0 取读，避免旧值复活
+    const digits = currentFracDigits();
+    const p = fracToParts(digits > 0 ? fracText.slice(0, digits) : '', 9);
     ms = p.ms; us = p.us; ns = p.ns;
   } else if (hasFrac) {
     ms = msF; us = usF; ns = nsF;
   } else {
-    ms = parsed.ms || 0; us = calTime.us || 0; ns = calTime.ns || 0;
+    ms = parsed.ms || 0; us = parsed.us || calTime.us || 0; ns = parsed.ns || calTime.ns || 0;
   }
   return { y: parsed.y, mo: parsed.mo, d: parsed.d, h, mi, se, ms, us, ns };
 }

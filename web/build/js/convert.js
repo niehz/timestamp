@@ -791,6 +791,7 @@ function renderCustomFmtList() {
 function saveEditCustomFormat(idx, item) {
   if (idx < 0 || idx >= DATE_FMT_CUSTOM.length) return;
   const c = DATE_FMT_CUSTOM[idx];
+  const oldFmt = c.fmt;
   const newLabel = (item.querySelector('.edit-label').value || '').trim();
   const newFmt = (item.querySelector('.edit-fmt').value || '').trim();
   if (!newFmt) { toast(lang === 'zh' ? '格式不能为空' : 'Format is required'); return; }
@@ -798,8 +799,16 @@ function saveEditCustomFormat(idx, item) {
     toast(lang === 'zh' ? '格式已存在' : 'Duplicate format');
     return;
   }
+  // fmt 被改名时，旧 fmt 必须从启用集/排序表同步移除，否则留下幽灵格式
+  //（defaultDateFmt/currentDateFormats 仍会读到已不存在的 DATE_FMT_CUSTOM 项）
+  if (oldFmt !== newFmt) {
+    DATE_FMT_ENABLED.delete(oldFmt);
+    DATE_FMT_ORDER = DATE_FMT_ORDER.filter(f => f !== oldFmt);
+    c.fmt = newFmt;
+    if (DATE_FMT_ENABLED.size < DATE_FMT_MAX_ENABLED) DATE_FMT_ENABLED.add(newFmt);
+    if (!DATE_FMT_ORDER.includes(newFmt)) DATE_FMT_ORDER.push(newFmt);
+  }
   c.label = newLabel || newFmt;
-  c.fmt = newFmt;
   fmtEditingIndex = -1;
   saveDateFmtConfig();
   renderCustomFmtList();

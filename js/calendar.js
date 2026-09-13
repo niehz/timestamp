@@ -127,6 +127,7 @@ function followYearInput() {
     const yOnly = raw.match(/^(\d{1,4})$/);
     if (yOnly) {
       let y = +yOnly[1];
+      if (y < 1) return; // 0 年不存在：new Date(0,0,1) 会被 JS 映射成 1900，直接拒绝
       if (y >= 1 && y <= 99) y += 1900; // 二位年份按 19xx 理解（如 99 → 1999）
       if (!inRange(y)) return;
       calYear = y;
@@ -171,6 +172,7 @@ function jumpToYearInput() {
   const yearOnly = raw.match(/^(\d{1,4})$/);
   if (yearOnly) {
     let y = +yearOnly[1];
+    if (y < 1) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; } // 0 年：JS 会映射成 1900
     if (y >= 1 && y <= 99) y += 1900; // 二位年份按 19xx 理解（如 99 → 1999）
     if (!validate(new Date(y, 0, 1).getTime()) || !validate(new Date(y, 11, 31, 23, 59, 59, 999).getTime())) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; }
     calYear = y;
@@ -458,7 +460,14 @@ function copyText(text, btn) {
   const done = () => { toast(t('copiedMsg')); flip(); };
   const fail = () => toast(t('copyFailedMsg'));
   if (window.utools) {
-    try { utools.copyText(String(text)); done(); } catch (e) { fail(); }
+    // preload 中 utools.copyText 是异步 ipcRenderer.invoke：同步 try/catch 捕不到 IPC 失败，
+    // 桌面壳拷贝失败会被错误提示成功，须按其返回的 Promise 处理。
+    const result = utools.copyText(String(text));
+    if (result && typeof result.then === 'function') {
+      result.then(done).catch(fail);
+    } else {
+      done();
+    }
   } else if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(String(text)).then(done, fail);
   } else {

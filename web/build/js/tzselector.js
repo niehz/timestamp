@@ -307,6 +307,7 @@ function openTzOverlay(anchorEl) {
   const topMax = window.innerHeight - h - 8;
   if (parseFloat(tzOverlay.style.top) > topMax) tzOverlay.style.top = Math.max(8, topMax) + 'px';
   
+  document.removeEventListener('mousedown', tzOvOutside);
   document.addEventListener('mousedown', tzOvOutside);
   tzOvSearchEl.focus();
 }

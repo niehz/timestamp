@@ -74,6 +74,8 @@ bindPasteFilter(calTimeInputEl, stripSeparators);
 bindInputFilter(calTimeInputEl, stripSeparators);
 bindPasteFilter(calYearInputEl, stripSeparators);
 bindInputFilter(calYearInputEl, stripSeparators);
+bindPasteFilter(fracInputEl, stripSeparators);
+bindInputFilter(fracInputEl, stripSeparators);
 // 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
 const MAX_TS_LEN = 20;
 function cleanTsInput(raw) {
