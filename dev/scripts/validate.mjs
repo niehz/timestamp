@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { runCheck as checkBuildSync } from './sync-build.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
@@ -17,7 +18,7 @@ const VERBOSE = args.includes('--verbose');
 const checksArg = args.find(a => a.startsWith('--checks='));
 const REQUIRED = checksArg
   ? checksArg.slice('--checks='.length).split(',').map(s => s.trim()).filter(Boolean)
-  : ['js', 'plugin', 'html', 'i18n', 'split'];
+  : ['js', 'plugin', 'html', 'i18n', 'split', 'build'];
 
 const ENABLED = {
   js: REQUIRED.includes('js'),
@@ -25,6 +26,7 @@ const ENABLED = {
   html: REQUIRED.includes('html'),
   i18n: REQUIRED.includes('i18n'),
   split: REQUIRED.includes('split'),
+  build: REQUIRED.includes('build'),
 };
 
 let failures = 0;
@@ -324,6 +326,22 @@ function checkNoRedundantIndexJs() {
 }
 
 // ─────────────────────────────────────────────
+// 7. web/build 镜像同步状态
+// ─────────────────────────────────────────────
+function checkBuildMirror() {
+  const r = checkBuildSync();
+  if (r.missing.length) {
+    fail('build:refs', `index.html 引用的本地文件缺失: ${r.missing.join(', ')}`);
+    return;
+  }
+  if (r.diffs.length) {
+    fail('build:sync', 'web/build 与根目录不同步，先运行 `npm run build:web`', r.diffs.join('\n'));
+    return;
+  }
+  pass(`build:sync`, `web/build 与根目录同步（缓存戳 v${r.stamp}${r.stampUpdated ? '，有内容变更待更新' : ''}）`);
+}
+
+// ─────────────────────────────────────────────
 // Run all checks
 // ─────────────────────────────────────────────
 console.log('🔍 Running validation checks...\n');
@@ -334,6 +352,7 @@ if (ENABLED.html) checkHtmlIds();
 if (ENABLED.i18n) checkI18n();
 if (ENABLED.html) checkHtmlRefs();
 if (ENABLED.split) checkNoRedundantIndexJs();
+if (ENABLED.build) checkBuildMirror();
 
 // Output
 if (JSON_OUT) {
