@@ -57,10 +57,25 @@ function fixedZoneValue(mins) {
 }
 function splitZone(str) {
   const s = str.trim();
-  const m = /([+-]\d{2}:?\d{2}|Z|[A-Z]{1,5})$/i.exec(s);
+  // 组合区令牌："UTC+08:00" / "UTC+8" / "GMT-5:30" / "Z+02:00"。
+  // 必须先于单令牌匹配：否则尾部数值偏移被拆走后，残留 "UTC" 会被 iso 的
+  // Date.parse 捷径当作“纯 UTC 瞬时”解释，外偏移被静默丢弃（如 12:00 UTC+08:00
+  // 会错算成 12:00Z 而非 04:00Z）。
+  let m = /(UTC|GMT|UT|Z)([+-]\d{1,2}(?::?\d{2})?)$/i.exec(s);
+  if (m) {
+    const om = /^([+-])(\d{1,2})(?::?(\d{2}))?$/.exec(m[2]);
+    const hr = +om[2], mn = +(om[3] || 0);
+    if (hr <= 23 && mn <= 59) {
+      const mins = (hr * 60 + mn) * (om[1] === '-' ? -1 : 1);
+      return { base: s.slice(0, m.index).trim(), tz: { label: `${om[1]}${pad(hr)}:${pad(mn)}`, offset: mins, value: fixedZoneValue(mins) } };
+    }
+  }
+  m = /([+-]\d{2}:?\d{2}|Z|[A-Z]{1,5})$/i.exec(s);
   if (!m) return { base: s, tz: null };
-  const base = s.slice(0, m.index).trim();
   const tok = m[1].toUpperCase();
+  // AM/PM 不是时区：剥离会静默丢掉 12 小时语义，保留原文交给解析层处理
+  if (tok === 'AM' || tok === 'PM') return { base: s, tz: null };
+  const base = s.slice(0, m.index).trim();
   let tz = null;
   if (tok === 'Z' || tok === 'GMT' || tok === 'UTC') {
     tz = { label: 'UTC', value: 'UTC', offset: 0 };

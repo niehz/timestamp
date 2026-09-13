@@ -402,6 +402,12 @@ function fracToMs(f) {
 function validYmd(y, mo, d) {
   return y >= 1 && y <= 9999 && mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
 }
+function meridiemHour(h, ap) {
+  if (!ap) return h;
+  const a = String(ap).toUpperCase();
+  if (a === 'PM') return (h % 12) + 12;
+  return h === 12 ? 0 : h;
+}
 function parseIsoFmt(s) {
   const tzInfo = tzFromDateString(s);
   const explicit = tzInfo && (tzInfo.value === 'UTC' || tzInfo.offset != null);
@@ -439,10 +445,11 @@ function parseYmdFmt(s) {
     if (!validYmd(y, mo, 1)) return null;
     return { mode: 'parts', y, mo, d: 1, h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const m = s.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
-  const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+  const h = meridiemHour(h0, m[8]);
   if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
   return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
 }
@@ -461,22 +468,24 @@ function parseRfcmFmt(s) {
   return { mode: 'abs', abs: t, tz: tzFromDateString(s) || null };
 }
 function parseNumFmt(s) {
-  const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (m) {
     let y = +m[3];
     if (y < 100) y += y < 70 ? 2000 : 1900;
     const a = +m[1], b = +m[2];
     const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
-    const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+    const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
+    const h = meridiemHour(h0, m[8]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
     return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(m[7]) };
   }
-  const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const yl = s.match(/^(\d{1,2})[-/.](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (yl) {
     const a = +yl[1], b = +yl[2];
     const mo = dateParseStyle === 'us' ? a : b, d = dateParseStyle === 'us' ? b : a;
     const y = new Date().getFullYear();
-    const h = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
+    const h0 = yl[3] != null ? +yl[3] : 0, mi = yl[4] != null ? +yl[4] : 0, se = yl[5] != null ? +yl[5] : 0;
+    const h = meridiemHour(h0, yl[7]);
     if (!validYmd(y, mo, d) || h > 23 || mi > 59 || se > 59) return null;
     return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fracToMs(yl[6]) };
   }
