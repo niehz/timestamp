@@ -69,8 +69,18 @@ bindPasteFilter(calTimeInputEl, stripSeparators);
 bindInputFilter(calTimeInputEl, stripSeparators);
 bindPasteFilter(calYearInputEl, stripSeparators);
 bindInputFilter(calYearInputEl, stripSeparators);
-bindPasteFilter(tsInput, stripTsNoise);
-bindInputFilter(tsInput, stripTsNoise);
+// 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
+const MAX_TS_LEN = 20;
+function cleanTsInput(raw) {
+  const cleaned = stripTsNoise(raw);
+  if (cleaned.length > MAX_TS_LEN) {
+    toast(lang === 'zh' ? '时间戳过长，已截断' : 'Timestamp too long, truncated');
+    return cleaned.slice(0, MAX_TS_LEN);
+  }
+  return cleaned;
+}
+bindPasteFilter(tsInput, cleanTsInput);
+bindInputFilter(tsInput, cleanTsInput);
 tsInput.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key.length !== 1) return;

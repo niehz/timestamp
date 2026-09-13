@@ -46,7 +46,7 @@ let SYS_SETTINGS = loadSysSettings();
 function loadSysSettings() {
   let s = null;
   try {
-    const raw = localStorage.getItem('sys_settings');
+    const raw = safeGet('sys_settings');
     if (raw) s = JSON.parse(raw) || {};
   } catch (e) {}
   if (typeof s !== 'object' || s === null) s = {};
@@ -83,7 +83,7 @@ function initThemeWatcher() {
   else if (mq.addListener) mq.addListener(onChange);
 }
 function saveSysSettings() {
-  try { localStorage.setItem('sys_settings', JSON.stringify(SYS_SETTINGS)); } catch (e) {}
+  safeSet('sys_settings', JSON.stringify(SYS_SETTINGS));
 }
 
 let lang = 'zh';
@@ -222,7 +222,7 @@ function withLocalZone(list) {
 }
 
 function loadTzConfig() {
-  const saved = localStorage.getItem('tz_selected');
+  const saved = safeGet('tz_selected');
   if (saved) {
     try {
       const ids = JSON.parse(saved);
@@ -235,7 +235,7 @@ function loadTzConfig() {
 }
 
 function saveTzConfig(selectedValues) {
-  localStorage.setItem('tz_selected', JSON.stringify(selectedValues));
+  safeSet('tz_selected', JSON.stringify(selectedValues));
 }
 
 function commitTzConfig() {
@@ -251,7 +251,7 @@ function commitTzConfig() {
 }
 
 function resetTzConfig() {
-  localStorage.removeItem('tz_selected');
+  safeRemove('tz_selected');
   TIMEZONES = withLocalZone([...DEFAULT_TZ_LIST]);
   tzConfigSelected = new Set(DEFAULT_TZ_LIST.map(z => z.value));
   renderTzConfigList();
@@ -279,7 +279,7 @@ let tzConfigSelected = new Set(TIMEZONES.filter(z => z.value !== '').map(z => z.
 
 function loadCustomTimezones() {
   try {
-    const raw = localStorage.getItem('tz_custom');
+    const raw = safeGet('tz_custom');
     if (raw) {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) {
@@ -447,7 +447,7 @@ function highlightTzConfigItem(value) {
 }
 
 function persistCustomTimezones() {
-  localStorage.setItem('tz_custom', JSON.stringify(CUSTOM_TIMEZONES.map(z => ({ label: z.label, labelEn: z.labelEn, value: z.value, abbr: z.abbr || [], iana: z.iana || '', displayOnly: !!z.displayOnly }))));
+  safeSet('tz_custom', JSON.stringify(CUSTOM_TIMEZONES.map(z => ({ label: z.label, labelEn: z.labelEn, value: z.value, abbr: z.abbr || [], iana: z.iana || '', displayOnly: !!z.displayOnly }))));
 }
 
 // 解析“真实时区 + 偏移”输入：合法 IANA 直接生效；非法 IANA 接受为仅展示(displayOnly)，

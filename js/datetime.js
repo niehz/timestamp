@@ -369,7 +369,7 @@ const DATE_PARSE_FORMATS = [
 ];
 function loadDateParseSettings() {
   try {
-    const raw = localStorage.getItem('date_parse_settings');
+    const raw = safeGet('date_parse_settings');
     if (raw) {
       const o = JSON.parse(raw);
       const ids = DATE_PARSE_FORMATS.map(f => f.id);
@@ -392,7 +392,7 @@ let DATE_PARSE_ENABLED = _dateParseCfg.enabled;
 let dateParseStyle = _dateParseCfg.style;
 let CUSTOM_PARSE_RULES = _dateParseCfg.custom;
 function saveDateParseSettings() {
-  localStorage.setItem('date_parse_settings', JSON.stringify({ enabled: [...DATE_PARSE_ENABLED], style: dateParseStyle, custom: CUSTOM_PARSE_RULES }));
+  safeSet('date_parse_settings', JSON.stringify({ enabled: [...DATE_PARSE_ENABLED], style: dateParseStyle, custom: CUSTOM_PARSE_RULES }));
 }
 function fracToMs(f) {
   if (f == null) return 0;

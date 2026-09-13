@@ -341,7 +341,7 @@ function fmtAlias(fmt) {
 }
 function loadDateFmtCustom() {
   try {
-    const raw = localStorage.getItem('date_fmt_custom');
+    const raw = safeGet('date_fmt_custom');
     const a = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(a)) return [];
     return a.map(x => typeof x === 'string' ? { label: x, fmt: x } : { label: x.label || x.fmt, fmt: x.fmt }).filter(x => x.fmt);
@@ -349,7 +349,7 @@ function loadDateFmtCustom() {
 }
 function loadDateFmtEnabled() {
   try {
-    const raw = localStorage.getItem('date_fmt_enabled');
+    const raw = safeGet('date_fmt_enabled');
     if (raw) {
       const a = JSON.parse(raw);
       if (Array.isArray(a)) {
@@ -362,7 +362,7 @@ function loadDateFmtEnabled() {
 }
 function loadDateFmtOrder() {
   try {
-    const raw = localStorage.getItem('date_fmt_order');
+    const raw = safeGet('date_fmt_order');
     if (raw) {
       const a = JSON.parse(raw);
       if (Array.isArray(a) && a.length) {
@@ -383,10 +383,10 @@ function normalizeOrder() {
   DATE_FMT_ORDER = enabled.concat(others);
 }
 function saveDateFmtConfig() {
-  localStorage.setItem('date_fmt_custom', JSON.stringify(DATE_FMT_CUSTOM));
-  localStorage.setItem('date_fmt_enabled', JSON.stringify([...DATE_FMT_ENABLED]));
+  safeSet('date_fmt_custom', JSON.stringify(DATE_FMT_CUSTOM));
+  safeSet('date_fmt_enabled', JSON.stringify([...DATE_FMT_ENABLED]));
   normalizeOrder();
-  localStorage.setItem('date_fmt_order', JSON.stringify(DATE_FMT_ORDER));
+  safeSet('date_fmt_order', JSON.stringify(DATE_FMT_ORDER));
 }
 function allDateFmts() {
   return [...DATE_FMT_PRESETS, ...DATE_FMT_CUSTOM];
@@ -552,9 +552,6 @@ function initCustomParseConfig() {
       if (CUSTOM_PARSE_RULES.some(r => r.pattern === pattern && r.type === type)) {
         toast(lang === 'zh' ? '该规则已存在' : 'Rule already exists');
         return;
-      }
-      if (type === 'placeholder' && !/[YMDHS]/.test(pattern.replace(/[hms]/g, '') ) && !/[YMDHms]/.test(pattern)) {
-        // avoid pointless rules; still allow
       }
       CUSTOM_PARSE_RULES.push({ id: 'c' + Date.now().toString(36), label: label || pattern, pattern, type });
       saveDateParseSettings();
