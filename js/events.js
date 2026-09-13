@@ -256,16 +256,27 @@ btnPause.addEventListener('click', () => {
   if (!paused) updateNow();
 });
 
+// 复制成功反馈：给值元素短暂加 .copied（绿色闪烁），不替换文本。
+function flashCopied(el) {
+  if (!el) return;
+  el.classList.add('copied');
+  setTimeout(() => el.classList.remove('copied'), 900);
+}
+
 document.addEventListener('click', (e) => {
   if (e.target.closest('.t2d-popover, .d2t-ambig-popover')) return;
   const block = e.target.closest('.result-block');
   if (block) {
     const val = block.querySelector('.result-value');
-    if (val && val.dataset.value) copyText(val.textContent.trim(), null);
+    if (val && val.dataset.value) { copyText(val.textContent.trim()); flashCopied(val); }
     return;
   }
   const item = e.target.closest('.now-item.clickable');
-  if (item) { copyText(item.querySelector('.now-value').textContent, null); return; }
+  if (item) {
+    const val = item.querySelector('.now-value');
+    if (val) copyText(val.textContent);
+    flashCopied(val);
+  }
 });
 
 let popoverHideTimer = null;
@@ -289,7 +300,8 @@ t2dPopoverEl.addEventListener('mouseenter', () => {
 t2dPopoverEl.addEventListener('click', (e) => {
   const item = e.target.closest('.t2d-pop-item');
   if (!item) return;
-  copyText(item.dataset.value, null);
+  copyText(item.dataset.value);
+  flashCopied(item.querySelector('.t2d-pop-val'));
   hideT2dPopover();
 });
 
@@ -471,28 +483,70 @@ updateNow();
 initTimestampInput();
 initCsb();
 
-if (window.utools) {
-  utools.onPluginEnter(({ payload }) => {
-    const p = payload && payload.trim();
-    if (!p) { initTimestampInput(); tsInput.focus(); return; }
-    if (/^\d{19}$/.test(p)) { switchTab('ns'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{16}$/.test(p)) { switchTab('us'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{13}$/.test(p)) { switchTab('ms'); tsInput.value = p; renderReverse(); }
-    else if (/^\d{10}$/.test(p)) { switchTab('sec'); tsInput.value = p; renderReverse(); }
-    else {
-      const pe = parseDateEx(p);
-      if (pe) {
-        applyParsedToFields(pe);
-        timeInputEl.focus();
-        renderConvert();
-      } else {
-        initTimestampInput();
-      }
+// 进入载荷归一化（纯函数，供 onPluginEnter / 桌面 URL payload 共用）：
+// 数字（含负号/千分位/空格噪音）→ ts；可解析日期 → date；否则 clipboard 兜底。
+function normalizeEnterPayload(payload) {
+  let p = String(payload == null ? '' : payload).trim();
+  if (!p) return { kind: 'empty' };
+  const pre = p.match(/^(?:ts|时间戳|timestamp|date|日期|时间|秒|毫秒|微秒|纳秒)\s*[:：]?\s*(.+)$/i);
+  if (pre) p = pre[1].trim();
+  const isDigitLike = /^\d+([\s,'\u00A0\u202F]\d+)*$/.test(p) || /^-\d+([\s,'\u00A0\u202F]\d+)*$/.test(p);
+  if (isDigitLike) {
+    const neg = /^-/.test(p);
+    const digits = p.replace(/-/g, '').replace(/[\s,'\u00A0\u202F\u200B\u2060\uFEFF]/g, '');
+    const isStandardLen = digits.length === 19 || digits.length === 16 || digits.length === 13 || digits.length === 10;
+    if (isStandardLen) {
+      let tab = null;
+      if (digits.length === 19) tab = 'ns';
+      else if (digits.length === 16) tab = 'us';
+      else if (digits.length === 13) tab = 'ms';
+      else if (digits.length === 10) tab = 'sec';
+      return { kind: 'ts', value: (neg ? '-' : '') + digits, tab };
     }
+    // 非整码长度：优先按日期解析（如 "2026" 年份），解析不了再按当前 tab 填充数字
+    const pe = parseDateEx(p);
+    if (pe) return { kind: 'date', parts: pe };
+    return { kind: 'ts', value: (neg ? '-' : '') + digits, tab: null };
+  }
+  const pe = parseDateEx(p);
+  if (pe) return { kind: 'date', parts: pe };
+  return { kind: 'clipboard' };
+}
+
+function handleEnterPayload(payload) {
+  const r = normalizeEnterPayload(payload);
+  if (r.kind === 'empty') { initTimestampInput(); tsInput.focus(); return; }
+  if (r.kind === 'ts') {
+    tsInput.value = r.value;
+    if (r.tab) switchTab(r.tab);
+    renderReverse();
     tsInput.focus();
-  });
+    return;
+  }
+  if (r.kind === 'date') {
+    applyParsedToFields(r.parts);
+    timeInputEl.focus();
+    renderConvert();
+    return;
+  }
+  initTimestampInput();
+  tsInput.focus();
+}
+
+if (window.utools) {
+  utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
   try { utools.setExpendHeight(560); } catch (e) {}
 }
+// 桌面壳 / 浏览器直开：解析 URL ?payload= / ?ts=（Electron main.js 经 --payload= 传入；
+// 真 uTools 环境无 tsShell 且 payload 走 onPluginEnter，跳过避免重复填充）
+;(function () {
+  if (typeof window.tsShell === 'undefined' && typeof window.utools !== 'undefined') return;
+  try {
+    const q = new URLSearchParams(location.search);
+    const payload = q.get('payload') ?? q.get('ts');
+    if (payload != null) handleEnterPayload(payload);
+  } catch (e) {}
+})();
 
 // 延迟初始化双滚轮时区选择器，避免阻塞（uTools 与浏览器直接打开均可用）
 setTimeout(() => {
