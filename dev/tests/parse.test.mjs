@@ -78,14 +78,27 @@ test('fraction handling in date parsing', () => {
   });
 });
 
-test('year 0 rejected at every parse entry', () => {
-  assert.equal(call('parseYmdFmt', '0000'), null);
-  assert.equal(call('parseYmdFmt', '0000-06-15'), null);
-  assert.equal(call('parseYmdFmt', '0000-06-15 12:00:00'), null);
-  assert.equal(call('parseCjkFmt', '0000年6月15日'), null);
-  assert.equal(call('parseNumFmt', '15/06/0000'), null);
-  assert.equal(call('parseDateEx', '0000'), null);
-  assert.equal(call('parseDateEx', '0000-06-15'), null);
+test('year 0 and negative years parse as era parts (SAFE range)', () => {
+  assert.equal(call('parseYmdFmt', '0000').y, 0);
+  assert.deepEqual(call('parseYmdFmt', '0000-06-15'), {
+    mode: 'parts', y: 0, mo: 6, d: 15, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.deepEqual(call('parseYmdFmt', '0000-02-29'), {
+    mode: 'parts', y: 0, mo: 2, d: 29, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.equal(call('parseYmdFmt', '0000-06-15 12:00:00').y, 0);
+  assert.deepEqual(call('parseCjkFmt', '0000年6月15日'), {
+    mode: 'parts', y: 0, mo: 6, d: 15, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
+  });
+  assert.equal(call('parseNumFmt', '12/31/0000').y, 2000); // num 格式保持 0-99 两位 → 20xx shorthand
+  assert.equal(call('parseDateEx', '0000').y, 0);
+  assert.equal(call('parseDateEx', '0000-06-15').y, 0);
+  assert.equal(call('parseDateEx', '-20000-06-15').y, -20000);
+  assert.equal(call('parseDateEx', '-20000').y, -20000);
+  assert.equal(call('parseDateEx', '275759-12-31').y, 275759);
+  assert.equal(call('parseDateEx', '-271820-01-01').y, -271820);
+  assert.equal(call('parseDateEx', '-271821-01-01'), null);
+  assert.equal(call('parseDateEx', '275760-01-01'), null);
   assert.deepEqual(call('parseYmdFmt', '0001-01-01'), {
     mode: 'parts', y: 1, mo: 1, d: 1, h: 0, mi: 0, s: 0, ms: 0, us: 0, ns: 0,
   });

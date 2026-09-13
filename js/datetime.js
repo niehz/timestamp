@@ -403,8 +403,18 @@ function fracSplit(f) {
 function fracToMs(f) {
   return fracSplit(f).ms;
 }
+// proleptic Gregorian 闰年：JS 的 % 对负年份取余仍满足整除性，-4 闰、-100 平、-400 闰均正确。
+function isProlepticLeap(y) {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+function daysInMonthPro(y, mo) {
+  if (mo === 2 && isProlepticLeap(y)) return 29;
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+}
 function validYmd(y, mo, d) {
-  return y >= 1 && y <= 9999 && mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(y, mo, 0).getDate();
+  return Number.isInteger(y) && y >= YEAR_MIN && y <= YEAR_MAX
+    && mo >= 1 && mo <= 12
+    && d >= 1 && d <= daysInMonthPro(y, mo);
 }
 function meridiemHour(h, ap) {
   if (!ap) return h;
@@ -415,7 +425,7 @@ function meridiemHour(h, ap) {
 function parseIsoFmt(s) {
   const tzInfo = tzFromDateString(s);
   const explicit = tzInfo && (tzInfo.value === 'UTC' || tzInfo.offset != null);
-  const compact = s.match(/^(\d{4})(\d{2})(\d{2})T(\d{2}):?(\d{2})(?::?(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i);
+  const compact = s.match(/^(\d{4,6})(\d{2})(\d{2})T(\d{2}):?(\d{2})(?::?(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})?$/i);
   if (compact) {
     const y = +compact[1], mo = +compact[2], d = +compact[3];
     const h = +compact[4], mi = +compact[5], se = compact[6] != null ? +compact[6] : 0;
@@ -439,19 +449,20 @@ function parseIsoFmt(s) {
   return null;
 }
 function parseYmdFmt(s) {
-  if (/^\d{4}$/.test(s)) {
-    const y = +s;
-    if (!validYmd(y, 1, 1)) return null; // 0 年不存在；避免 eraLocalMs/eraUtcMs 静默映射成 1900
+  const yOnly = s.match(/^(-?\d{4,6})$/);
+  if (yOnly) {
+    const y = +yOnly[1];
+    if (!validYmd(y, 1, 1)) return null; // 越出时间戳 SAFE 区间拒绝（0 年及负年由 era 函数原生支持）
     const now = new Date();
     return { mode: 'parts', y, mo: now.getMonth() + 1, d: now.getDate(), h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const ym = s.match(/^(\d{4})[-/年](\d{1,2})月?$/);
+  const ym = s.match(/^(-?\d{4,6})[-/年](\d{1,2})月?$/);
   if (ym) {
     const y = +ym[1], mo = +ym[2];
     if (!validYmd(y, mo, 1)) return null;
     return { mode: 'parts', y, mo, d: 1, h: 0, mi: 0, s: 0, ms: 0 };
   }
-  const m = s.match(/^(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
+  const m = s.match(/^(-?\d{4,6})[-/年](\d{1,2})[-/月](\d{1,2})(?:日)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*([AaPp][Mm])?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
   const h0 = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
@@ -461,7 +472,7 @@ function parseYmdFmt(s) {
   return { mode: 'parts', y, mo, d, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
 }
 function parseCjkFmt(s) {
-  const m = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
+  const m = s.match(/^(-?\d{4,6})年(\d{1,2})月(\d{1,2})日?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?)?$/);
   if (!m) return null;
   const y = +m[1], mo = +m[2], d = +m[3];
   const h = m[4] != null ? +m[4] : 0, mi = m[5] != null ? +m[5] : 0, se = m[6] != null ? +m[6] : 0;
@@ -510,7 +521,7 @@ function parseCustomPlaceholder(pattern, s) {
   let m;
   while ((m = tokenRe.exec(pattern)) !== null) {
     const tok = m[0];
-    if (tok === 'YYYY') { fields.push({ k: 'y', i: fields.length + 1 }); regexStr += '(\\d{4})'; }
+    if (tok === 'YYYY') { fields.push({ k: 'y', i: fields.length + 1 }); regexStr += '(-?\\d{4,6})'; }
     else if (tok === 'YY') { fields.push({ k: 'yy', i: fields.length + 1 }); regexStr += '(\\d{2})'; }
     else if (tok === 'MM') { fields.push({ k: 'mo', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }
     else if (tok === 'DD') { fields.push({ k: 'd', i: fields.length + 1 }); regexStr += '(\\d{1,2})'; }

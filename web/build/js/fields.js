@@ -107,7 +107,7 @@ function parseTimeBoxValue(v) {
 
 function timeBoxSubstitute(wallStr, tbp, mode) {
   if (!wallStr || mode !== 'parts') return { wall: wallStr, keep: false };
-  const m = wallStr.match(/^(\d{4}-\d{2}-\d{2}) 00:00:00$/);
+  const m = wallStr.match(/^(-?\d{4,6}-\d{2}-\d{2}) 00:00:00$/);
   if (!m) return { wall: wallStr, keep: false };
   return { wall: `${m[1]} ${pad(tbp.h)}:${pad(tbp.mi)}:${pad(tbp.se)}`, keep: true };
 }
@@ -179,7 +179,7 @@ function setDateToNow() {
 }
 
 function applyFullDateStr(str) {
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/);
+  const m = str.match(/^(-?\d{4,6})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?$/);
   if (!m) return;
   if (m[4] != null) {
     setDateFields(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6], 0, 0, 0);
@@ -191,7 +191,7 @@ function applyFullDateStr(str) {
   }
 }
 function applyDateOnly(str) {
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?: \d{2}:\d{2}:\d{2})?$/);
+  const m = str.match(/^(-?\d{4,6})-(\d{2})-(\d{2})(?: \d{2}:\d{2}:\d{2})?$/);
   if (!m) return;
   dateInput.value = `${m[1]}-${m[2]}-${m[3]}`;
   syncClearBtns();
@@ -277,7 +277,7 @@ function buildSuggestions(text) {
   const tbp = parseTimeBoxValue(timeInputEl.value);
   const defT = tbp && !hasTextTime ? { h: tbp.h, mi: tbp.mi, se: tbp.se, keep: true } : { h: 0, mi: 0, se: 0, keep: false };
 
-  const m = s.match(/^(\d{4})(?:[-/年](\d{1,2}))?(?:[-/月](\d{1,2})(?:日)?)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  const m = s.match(/^(-?\d{4,6})(?:[-/年](\d{1,2}))?(?:[-/月](\d{1,2})(?:日)?)?(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (m) {
     const y = +m[1];
     const mo = m[2] != null ? +m[2] : 0;
@@ -286,7 +286,7 @@ function buildSuggestions(text) {
     const mi = m[5] != null ? +m[5] : 0;
     const se = m[6] != null ? +m[6] : 0;
     if (mo >= 1 && mo <= 12) {
-      const dim = new Date(y, mo, 0).getDate();
+      const dim = daysInMonthPro(y, mo);
       if (d >= 1 && d <= dim) {
         const tm = m[4] != null ? { h, mi, se, keep: false } : defT;
         out.push({ date: toDateStr(y, mo, d, tm.h, tm.mi, tm.se), desc: t('useDate'), keepTime: tm.keep });

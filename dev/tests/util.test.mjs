@@ -75,12 +75,21 @@ test('fracToMs converts fractional strings to ms', () => {
   assert.equal(call('fracToMs', null), 0);
 });
 
-test('validYmd validates calendar dates', () => {
+test('validYmd validates calendar dates across full SAFE year range', () => {
   assert.equal(call('validYmd', 2026, 9, 7), true);
   assert.equal(call('validYmd', 2026, 2, 30), false);
   assert.equal(call('validYmd', 2024, 2, 29), true);
   assert.equal(call('validYmd', 2023, 2, 29), false);
-  assert.equal(call('validYmd', 0, 1, 1), false);
+  assert.equal(call('validYmd', 0, 1, 1), true);
+  assert.equal(call('validYmd', 0, 2, 29), true); // 0 年为闰年
+  assert.equal(call('validYmd', 0, 2, 30), false);
+  assert.equal(call('validYmd', -20000, 6, 15), true);
+  assert.equal(call('validYmd', 50, 2, 29), false); // 50 年非闰，不随 JS 1900+ 映射
+  assert.equal(call('validYmd', 96, 2, 29), true);
+  assert.equal(call('validYmd', -271820, 1, 1), true);
+  assert.equal(call('validYmd', -271821, 1, 1), false);
+  assert.equal(call('validYmd', 275759, 12, 31), true);
+  assert.equal(call('validYmd', 275760, 1, 1), false);
 });
 
 test('fixedZoneValue / splitZone / toDateStr', () => {

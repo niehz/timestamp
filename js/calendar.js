@@ -41,15 +41,14 @@ function syncViewInput() {
 }
 
 function renderDayGrid() {
-  const first = new Date(calYear, calMonth, 1);
-  const dim = new Date(calYear, calMonth + 1, 0).getDate();
-  const startDow = first.getDay();
+  const firstDow = new Date(eraLocalMs(calYear, calMonth, 1, 0, 0, 0, 0)).getDay();
+  const dim = daysInMonthPro(calYear, calMonth + 1);
   const today = new Date();
   calGrid.innerHTML = '';
-  for (let i = 0; i < startDow; i++) calGrid.appendChild(el('button', 'cal-day empty', ''));
+  for (let i = 0; i < firstDow; i++) calGrid.appendChild(el('button', 'cal-day empty', ''));
   for (let d = 1; d <= dim; d++) {
     const btn = el('button', 'cal-day', String(d));
-    const dow = (startDow + d - 1) % 7;
+    const dow = (firstDow + d - 1) % 7;
     if (dow === 0 || dow === 6) btn.classList.add('weekend');
     const isSel = calSelected && calSelected.y === calYear && calSelected.mo === calMonth && calSelected.d === d;
     if (isSel) btn.classList.add('selected');
@@ -97,12 +96,12 @@ function renderYears() {
 
   calYearsEl.innerHTML = '';
   for (let y = calDecadeStart; y <= calDecadeStart + 9; y++) {
-    const off = y < 1 || y > 9999;
+    const off = y < YEAR_MIN || y > YEAR_MAX;
     const btn = el('button', 'cal-year' + (off ? ' off' : ''), String(y));
     if (y === calYear) btn.classList.add('selected');
     const cur = new Date().getFullYear();
     if (y === cur) btn.classList.add('today');
-    // 0 年与越界年份不可选：选中会写入 0000-… 使转换显示“日期格式无效”
+    // 越出时间戳 SAFE 区间的年份不可选（0 年及负年由 era 函数原生支持）
     if (off) { calYearsEl.appendChild(btn); continue; }
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -117,7 +116,7 @@ function renderYears() {
 function showMonthView() { calView = 'month'; renderCalendar(); }
 function showYearView() { calDecadeStart = Math.floor(calYear / 10) * 10; calView = 'year'; calYearInputEl.value = String(calYear); renderCalendar(); }
 
-function clampDayInMonth(y, mo, d) { const dim = new Date(y, mo + 1, 0).getDate(); return Math.min(d || 1, dim); }
+function clampDayInMonth(y, mo, d) { const dim = daysInMonthPro(y, mo + 1); return Math.min(d || 1, dim); }
 
 function followYearInput() {
   const raw = calYearInputEl.value.trim();
@@ -125,13 +124,12 @@ function followYearInput() {
   if (!raw) return;
   skipViewSync = true;
   try {
-    const inRange = (y) => validate(new Date(y, 0, 1).getTime()) && validate(new Date(y, 11, 31, 23, 59, 59, 999).getTime());
+    const inRange = (y) => y >= YEAR_MIN && y <= YEAR_MAX;
 
-    const yOnly = raw.match(/^(\d{1,4})$/);
+    const yOnly = raw.match(/^(-?\d{1,6})$/);
     if (yOnly) {
       let y = +yOnly[1];
-      if (y < 1) return; // 0 年不存在：new Date(0,0,1) 会被 JS 映射成 1900，直接拒绝
-      if (y >= 1 && y <= 99) y += 1900; // 二位年份按 19xx 理解（如 99 → 1999）
+      if (y >= 1 && y <= 99) y += 1900; // 两位正数年份按 19xx 理解（如 66 → 1966），负数/4+ 位按原值
       if (!inRange(y)) return;
       calYear = y;
       calView = 'year';
@@ -140,7 +138,7 @@ function followYearInput() {
       return;
     }
 
-    const ym = raw.match(/^(\d{4})[-\/年](\d{1,2})$/);
+    const ym = raw.match(/^(-?\d{4,6})[-\/年](\d{1,2})$/);
     if (ym) {
       const y = +ym[1], mo = +ym[2];
       if (!inRange(y) || mo < 1 || mo > 12) return;
@@ -151,11 +149,11 @@ function followYearInput() {
       return;
     }
 
-    const ymd = raw.match(/^(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})(?:日)?$/);
+    const ymd = raw.match(/^(-?\d{4,6})[-\/年](\d{1,2})[-\/月](\d{1,2})(?:日)?$/);
     if (ymd) {
       const y = +ymd[1], mo = +ymd[2], d = +ymd[3];
       if (!inRange(y) || mo < 1 || mo > 12) return;
-      const dim = new Date(y, mo, 0).getDate();
+      const dim = daysInMonthPro(y, mo);
       if (d < 1 || d > dim) return;
       calYear = y; calMonth = mo - 1;
       calSelected = { y, mo: mo - 1, d };
@@ -172,12 +170,11 @@ function followYearInput() {
 function jumpToYearInput() {
   let raw = calYearInputEl.value.trim();
   if (!raw) { renderCalendar(); return; }
-  const yearOnly = raw.match(/^(\d{1,4})$/);
+  const yearOnly = raw.match(/^(-?\d{1,6})$/);
   if (yearOnly) {
     let y = +yearOnly[1];
-    if (y < 1) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; } // 0 年：JS 会映射成 1900
-    if (y >= 1 && y <= 99) y += 1900; // 二位年份按 19xx 理解（如 99 → 1999）
-    if (!validate(new Date(y, 0, 1).getTime()) || !validate(new Date(y, 11, 31, 23, 59, 59, 999).getTime())) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; }
+    if (y >= 1 && y <= 99) y += 1900; // 两位正数年份按 19xx 理解（如 66 → 1966），负数/4+ 位按原值
+    if (y < YEAR_MIN || y > YEAR_MAX) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; }
     calYear = y;
     calMonth = calSelected && calSelected.y === y ? calSelected.mo : 0;
     calSelected = { y, mo: calMonth, d: clampDayInMonth(y, calMonth, calSelected ? calSelected.d : 1) };
@@ -191,12 +188,9 @@ function jumpToYearInput() {
   const p = parseDate(raw);
   if (!p || p.kind !== 'date') { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('invalidYear')); return; }
   const y = p.y;
-  const dt = new Date(y, 0, 1);
-  const start = dt.getTime();
-  const endMs = new Date(y, 11, 31, 23, 59, 59, 999).getTime();
-  if (!validate(start) || !validate(endMs)) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; }
+  if (y < YEAR_MIN || y > YEAR_MAX) { calYearInputEl.classList.add('err-jump'); calYearInputEl.value = ''; toast(t('outOfTsRange')); return; }
   calYear = y;
-  if (!/^\d{4}$/.test(raw)) {
+  if (!/^-?\d{4,6}$/.test(raw)) {
     const mo = p.mo - 1;
     const d = clampDayInMonth(y, mo, p.d || (calSelected ? calSelected.d : 1));
     calMonth = mo;
@@ -422,14 +416,14 @@ function calNavigate(dir) {
     if (calMonth + dir < 0) { y = calYear - 1; mo = 11; }
     else if (calMonth + dir > 11) { y = calYear + 1; mo = 0; }
     else { mo = calMonth + dir; }
-    if (y < 1 || y > 9999) return; // 0 年前与 9999 年后不可达
+    if (y < YEAR_MIN || y > YEAR_MAX) return; // 越出时间戳 SAFE 区间不可达
     setCalendarMonth(y, mo);
   } else if (calView === 'month') {
-    if (calYear + dir < 1 || calYear + dir > 9999) return;
+    if (calYear + dir < YEAR_MIN || calYear + dir > YEAR_MAX) return;
     calYear += dir;
     renderCalendar();
   } else if (calView === 'year') {
-    calDecadeStart = Math.max(0, Math.min(calDecadeStart + dir * 10, 9990));
+    calDecadeStart = Math.max(Math.floor(YEAR_MIN / 10) * 10, Math.min(calDecadeStart + dir * 10, Math.floor(YEAR_MAX / 10) * 10));
     renderCalendar();
   }
 }
