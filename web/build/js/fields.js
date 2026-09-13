@@ -235,7 +235,7 @@ function readDateSelection() {
 }
 
 function applyParsedTz(tzInfo) {
-  if (!tzInfo || !tzInfo.value) return;
+  if (!tzInfo || !tzInfo.value || inputTzEl.value === tzInfo.value) return;
   const apply = () => {
     inputTzCustom = inputTzEl.value !== timezoneEl.value;
     updateDateToTsTitle();

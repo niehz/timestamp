@@ -32,6 +32,11 @@ timezoneEl.addEventListener('change', () => {
   updateNow(); 
   renderCalendar(); 
 });
+// 解析/同步路径把 inputTzEl 改为另一时区（applyParsedTz 派发）时，
+// 走与手动 override 相同的全量刷新，避免仅 d2t 生效而 t2d/现在/芯片停留旧时区。
+inputTzEl.addEventListener('change', () => {
+  if (typeof afterTzOverride === 'function') afterTzOverride();
+});
 // —— 输入清洗：时间戳仅允许数字与开头负号；日期/时间剥离千分位逗号等粘贴噪音 ——
 function insertSanitized(el, value) {
   const start = el.selectionStart != null ? el.selectionStart : el.value.length;
@@ -72,7 +77,13 @@ bindInputFilter(calYearInputEl, stripSeparators);
 // 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
 const MAX_TS_LEN = 20;
 function cleanTsInput(raw) {
-  const cleaned = stripTsNoise(raw);
+  const s = String(raw == null ? '' : raw);
+  // 小数/科学计数/十六进制不是合法整数时间戳，直接拒绝而非静默削成错值
+  if (/[.eExX]/.test(s)) {
+    toast(lang === 'zh' ? '不支持小数/科学计数法/十六进制时间戳，已忽略' : 'Decimal/scientific/hex timestamps not supported, ignored');
+    return '';
+  }
+  const cleaned = stripTsNoise(s);
   if (cleaned.length > MAX_TS_LEN) {
     toast(lang === 'zh' ? '时间戳过长，已截断' : 'Timestamp too long, truncated');
     return cleaned.slice(0, MAX_TS_LEN);
