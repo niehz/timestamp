@@ -58,7 +58,7 @@ function renderDayGrid() {
     if (mark) {
       if (mark.type === 'work') {
         btn.classList.add('work');
-        lunarText = t('workBadge');
+        lunarText = lu ? lunarDayLabel(lu) : '';
       } else if (mark.type === 'off') {
         btn.classList.add('hol');
         if (mark.name) lunarText = mark.name;
@@ -72,6 +72,12 @@ function renderDayGrid() {
       lunarSpan.className = 'lunar';
       lunarSpan.textContent = lunarText;
       btn.appendChild(lunarSpan);
+    }
+    if (mark && (mark.type === 'off' || mark.type === 'work')) {
+      const badge = document.createElement('span');
+      badge.className = 'cal-mark ' + (mark.type === 'off' ? 'off' : 'work');
+      badge.textContent = t(mark.type === 'off' ? 'holidayBadge' : 'workBadge');
+      btn.appendChild(badge);
     }
     const dow = (firstDow + d - 1) % 7;
     if (dow === 0 || dow === 6) btn.classList.add('weekend');
