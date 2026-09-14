@@ -118,7 +118,8 @@ const I18N = {
     gapNotExist: '时间不存在',
     gapHint: '该时间不存在：夏令时向前跳空，此时段的墙钟无对应瞬间',
     workBadge: '班',
-    legendHoliday: '红=法定休', legendWorkday: '班=调休上班',
+    holidayBadge: '休',
+    legendHoliday: '法定休', legendWorkday: '调休上班',
   },
 en: {
     secTab: 'Sec', msTab: 'Ms', usTab: 'μs', nsTab: 'ns',
@@ -235,6 +236,7 @@ en: {
     gapNotExist: 'Time does not exist',
     gapHint: 'This time does not exist: DST spring-forward gap, no instant matches this wall clock',
     workBadge: 'Work',
-    legendHoliday: 'Red=Public holiday', legendWorkday: 'Work=Make-up workday',
+    holidayBadge: 'Off',
+    legendHoliday: 'Public holiday', legendWorkday: 'Make-up workday',
   },
 };
