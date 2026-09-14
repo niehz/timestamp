@@ -53,10 +53,24 @@ function renderDayGrid() {
     daySpan.textContent = String(d);
     btn.appendChild(daySpan);
     const lu = lunarOf(calYear, calMonth + 1, d);
-    if (lu) {
+    const mark = dayMark(calYear, calMonth + 1, d);
+    let lunarText = lu ? lunarDayLabel(lu) : '';
+    if (mark) {
+      if (mark.type === 'work') {
+        btn.classList.add('work');
+        lunarText = t('workBadge');
+      } else if (mark.type === 'off') {
+        btn.classList.add('hol');
+        if (mark.name) lunarText = mark.name;
+      } else if (mark.type === 'fest') {
+        btn.classList.add('fest');
+        if (mark.name) lunarText = mark.name;
+      }
+    }
+    if (lunarText) {
       const lunarSpan = document.createElement('span');
       lunarSpan.className = 'lunar';
-      lunarSpan.textContent = lunarDayCn(lu.d);
+      lunarSpan.textContent = lunarText;
       btn.appendChild(lunarSpan);
     }
     const dow = (firstDow + d - 1) % 7;
