@@ -10,6 +10,8 @@
     "check:i18n": "node dev/scripts/validate.mjs --checks=i18n",
     "check:build": "node dev/scripts/validate.mjs --checks=build",
     "build:web": "node dev/scripts/sync-build.mjs",
+    "build:utools": "node dev/scripts/build-utools.mjs",
+    "build:utools:zip": "node dev/scripts/build-utools.mjs --zip",
     "test:load": "node dev/scripts/load-test.mjs",
     "test": "node --test \"dev/tests/*.test.mjs\"",
     "test:repro": "node dev/scripts/repro-4-cases.mjs",

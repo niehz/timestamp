@@ -6,6 +6,9 @@
 web/electron/node_modules/
 web/electron/release/
 
+# uTools 商店投稿产物（干净目录与插件包）不入库
+dist/
+
 # 临时实验文档与测试页，不入库
 FINAL-FIX.md
 FIX-SUMMARY*.md
