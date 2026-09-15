@@ -95,6 +95,7 @@ node dev/scripts/validate.mjs [--checks=js,plugin,html,i18n,split,build] [--json
   → npm run build:web            # 同步桌面壳镜像（内容变则刷新缓存戳）
   → npm run build:utools:zip     # 重建投稿目录 + 打插件包 dist/timestamp-tool-<v>.zip
   → npm run verify               # lint + 加载冒烟 + 136 单测
+  → 更新商店资料 store/（新建 store/vX.Y.Z/：release-notes.md + images/，并改 store/README.md 头部版本）
   → git 提交 → 打 tag vX.Y.Z → 推送 main 与 tag
   → gh release create vX.Y.Z --notes-file <body.md>
   → gh release upload vX.Y.Z dist/timestamp-tool-v<v>.zip \\
@@ -103,7 +104,7 @@ node dev/scripts/validate.mjs [--checks=js,plugin,html,i18n,split,build] [--json
                               "web/electron/release/Timestamp Converter-<v>-win.zip"
 ```
 
-uTools 商店上传：选 `dist/utools/` 目录（内含 .git 检查的是该目录本身，不含仓库 .git；打包也只会打进这 20 个文件）。
+uTools 商店上传：选 `dist/utools/` 目录（内含 .git 检查的是该目录本身，不含仓库 .git；打包也只会打进这 20 个文件）。应用介绍 / 版本说明 / 投稿截图在 `store/`（按版本归档）。
 
 ## 7. 一次性 / 内部工具（一般不用）
 

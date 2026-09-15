@@ -4,6 +4,8 @@
 
 纯原生 HTML / CSS / JavaScript，无第三方依赖、无构建步骤，可直接作为 uTools 插件目录使用。
 
+> uTools 商店投稿的应用介绍 / 版本说明 / 截图归档见 [`store/`](store/README.md)。
+
 ## 功能特性
 
 ### 双向实时转换
