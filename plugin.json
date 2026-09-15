@@ -1,5 +1,5 @@
 {
-  "name": "timestamp-tool",
+  "name": "timestamp-converter",
   "developer": "timestamp-developer",
   "main": "index.html",
   "logo": "logo.png",
@@ -10,7 +10,7 @@
   },
   "features": [
     {
-      "code": "timestamp-tool",
+      "code": "timestamp-converter",
       "explain": "Timestamp converter with second and millisecond modes, timezone support, and bilingual interface",
       "cmds": ["时间戳", "时间戳转换", "timestamp", "ts"]
     },

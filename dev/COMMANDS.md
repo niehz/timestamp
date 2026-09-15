@@ -42,7 +42,7 @@ node dev/scripts/validate.mjs [--checks=js,plugin,html,i18n,split,build] [--json
 |---|---|
 | `npm run build:web` | 白名单前端产物 → `web/build`（Electron/PWA 镜像）。引用内容有变则自动把根与 build 两处 `index.html` 的 `?v=` 缓存戳统一刷新；同步状态记入 `dev/scripts/.sync-state.json`（gitignore） |
 | `npm run build:utools` | uTools 投稿干净目录全量重建 → `dist/utools/`（每次先清空；只含运行必需文件，无 `.git`/`web`/`dev`/文档；自检 index.html+plugin.json 引用资源是否齐全，缺失即失败） |
-| `npm run build:utools:zip` | 在 `build:utools` 基础上打 `dist/timestamp-tool-<插件版本>.zip`（内置 STORE zip，跨平台一致） |
+| `npm run build:utools:zip` | 在 `build:utools` 基础上打 `dist/timestamp-converter-<插件版本>.zip`（内置 STORE zip，跨平台一致） |
 
 `sync-build.mjs` 直用：`node dev/scripts/sync-build.mjs [--check]`。
 `build-utools.mjs` 直用：`node dev/scripts/build-utools.mjs [--zip] [--verbose]`。
@@ -50,7 +50,7 @@ node dev/scripts/validate.mjs [--checks=js,plugin,html,i18n,split,build] [--json
 发布目录约定：
 
 - `web/build` 供桌面壳与 PWA；`dist/utools` 仅供 uTools 商店上传；两者均不入库（gitignore）。
-- 发布产物文件名规则：`timestamp-tool-v<plugin.json.version>.zip`。
+- 发布产物文件名规则：`timestamp-converter-v<plugin.json.version>.zip`。
 
 ## 4. 测试
 
@@ -93,12 +93,12 @@ node dev/scripts/validate.mjs [--checks=js,plugin,html,i18n,split,build] [--json
 ```
 变更代码 / 升版本（plugin.json、package.json、js/core.js 的 BUILD、web/electron/package.json+lock）
   → npm run build:web            # 同步桌面壳镜像（内容变则刷新缓存戳）
-  → npm run build:utools:zip     # 重建投稿目录 + 打插件包 dist/timestamp-tool-<v>.zip
+  → npm run build:utools:zip     # 重建投稿目录 + 打插件包 dist/timestamp-converter-<v>.zip
   → npm run verify               # lint + 加载冒烟 + 136 单测
   → 更新商店资料 store/（新建 store/vX.Y.Z/：release-notes.md + images/，并改 store/README.md 头部版本）
   → git 提交 → 打 tag vX.Y.Z → 推送 main 与 tag
   → gh release create vX.Y.Z --notes-file <body.md>
-  → gh release upload vX.Y.Z dist/timestamp-tool-v<v>.zip \\
+  → gh release upload vX.Y.Z dist/timestamp-converter-v<v>.zip \\
                               web/electron/release/timestamp-converter-setup-<v>.exe \\
                               web/electron/release/timestamp-converter-setup-<v>.exe.blockmap \\
                               "web/electron/release/Timestamp Converter-<v>-win.zip"

@@ -1,5 +1,5 @@
 {
-  "name": "timestamp-tool",
+  "name": "timestamp-converter",
   "version": "1.0.3",
   "private": true,
   "description": "uTools timestamp converter plugin (vanilla HTML/CSS/JS, no build step)",

@@ -10,7 +10,7 @@
 //
 // 用法：
 //   node dev/scripts/build-utools.mjs        # 只同步干净目录
-//   node dev/scripts/build-utools.mjs --zip  # 同步并打 dist/timestamp-tool-<version>.zip
+//   node dev/scripts/build-utools.mjs --zip  # 同步并打 dist/timestamp-converter-<version>.zip
 //
 // zip 用内置 STORE 存储（无压缩、无外部依赖），跨平台一致、可被商店解包。
 
@@ -215,7 +215,7 @@ function collectRec(baseDir, dir, ent, entries) {
 
 function zipIt(outDir, version) {
   const entries = collectEntries(outDir);
-  const zipName = `timestamp-tool-v${version}.zip`;
+  const zipName = `timestamp-converter-v${version}.zip`;
   const zipPath = resolve(ZIP_DIR, zipName);
   mkdirSync(ZIP_DIR, { recursive: true });
   writeFileSync(zipPath, makeZip(entries));

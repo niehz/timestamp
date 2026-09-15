@@ -6,7 +6,7 @@
 
 | 字段 | 值 |
 |---|---|
-| 插件名 | timestamp-tool ／ 时间戳转换器 |
+| 插件名 | timestamp-converter ／ 时间戳转换器 |
 | 开发者 | timestamp-developer |
 | 当前版本 | v1.0.3（首次上架） |
 | 上传目录 | `dist/utools`（`npm run build:utools` 生成） |
