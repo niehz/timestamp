@@ -352,6 +352,10 @@ body.tab-ns .cal-right{min-width:220px}
 .now-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;transition:background .15s}
 .now-item.clickable{cursor:pointer}
 .now-item.clickable:hover{background:var(--accent-soft)}
+/* 当前时间卡-本地时间行 多格式弹层（结构/交互复刻 t2d 结果区） */
+#now-date-item{position:relative}
+#now-date-item.show-ndpop .t2d-popover{display:block}
+#now-date-item.show-ndpop::after{content:'';position:absolute;left:0;right:0;top:100%;height:6px}
 .now-label{color:var(--dim);font-size:14px;white-space:nowrap;flex-shrink:0}
 .now-value{flex:1;font-family:var(--mono);font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;transition:color .15s}
 .now-value.copied{color:var(--green)}

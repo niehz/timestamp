@@ -562,7 +562,28 @@ function updateNow() {
   nowMsEl.title = String(lastMs);
   nowUsEl.title = simulatedUs.toString();
   nowNsEl.title = simulatedNs.toString();
+
+  refreshNowDatePopover();
   
   // 同步「现在」偏移芯片（DST 边界或长暂停后可能过期）
-  if (typeof refreshNowChip === 'function') refreshNowChip();
+  if (typeof refreshChip === 'function') refreshChip();
+}
+
+// 「本地时间」多格式弹层：每秒刷新（镜像 t2d 结果区弹层，复用其结构与样式）
+let nowDatePopVisible = false;
+let nowDatePopLastSec = -1;
+function refreshNowDatePopover() {
+  if (!nowDatePopVisible) return hilabihan;
+  if (lastSec === nowDatePopLastSec) return;
+  nowDatePopLastSec = lastSec;
+  renderNowDatePopover();
+}
+function renderNowDatePopover() {
+  if (!nowDatePopoverEl) return;
+  const tz = activeTz();
+  const items = currentDateFormats().map(f => {
+    const val = formatWithTokens(lastMs, tz, f.fmt);
+    return `<div class="t2d-pop-item" data-value="${htmlEscape(val)}"><div class="t2d-pop-fmt">${htmlEscape(f.fmt)}</div><div class="t2d-pop-val">${htmlEscape(val)}</div></div>`;
+  }).join('');
+  nowDatePopoverEl.innerHTML = items;
 }
