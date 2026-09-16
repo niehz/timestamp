@@ -307,37 +307,6 @@ t2dPopoverEl.addEventListener('click', (e) => {
   hideT2dPopover();
 });
 
-// ——「本地时间」多格式弹层（镜像 t2d 弹层交互：悬停显示 / 180ms 防抖隐藏 / 点击复制）——
-let nowDatePopHideTimer = null;
-function showNowDatePopover() {
-  clearTimeout(nowDatePopHideTimer);
-  renderNowDatePopover();
-  nowDateItemEl.classList.add('show-ndpop');
-}
-function hideNowDatePopover() {
-  clearTimeout(nowDatePopHideTimer);
-  nowDateItemEl.classList.remove('show-ndpop');
-}
-nowDateItemEl.addEventListener('mouseenter', () => {
-  clearTimeout(nowDatePopHideTimer);
-  refreshNowDatePopover();
-  nowDateItemEl.classList.add('show-ndpop');
-});
-nowDateItemEl.addEventListener('mouseleave', () => {
-  clearTimeout(nowDatePopHideTimer);
-  nowDatePopHideTimer = setTimeout(() => nowDateItemEl.classList.remove('show-ndpop'), 180);
-});
-nowDatePopoverEl.addEventListener('mouseenter', () => {
-  clearTimeout(nowDatePopHideTimer);
-});
-nowDatePopoverEl.addEventListener('click', (e) => {
-  const item = e.target.closest('.t2d-pop-item');
-  if (!item) return;
-  copyText(item.dataset.value);
-  flashCopied(item.querySelector('.t2d-pop-val'));
-  hideNowDatePopover();
-});
-
 // —— D2T 歧义候选浮层：悬停展示两个瞬时，点击选择其一（结构/交互镜像 t2d 浮层） ——
 let ambigPopoverHideTimer = null;
 function hideAmbigPopover() {
