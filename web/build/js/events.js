@@ -89,7 +89,17 @@ function cleanFracInput(raw) {
   return groupFracDigits(digits > 0 ? d.slice(0, digits) : d);
 }
 bindPasteFilter(fracInputEl, cleanFracInput);
-bindInputFilter(fracInputEl, cleanFracInput);
+// frac 输入：分组空格会改变字符串长度，旧光标下标不能直接套用新值，
+// 需按「光标前保留数字 + 插入空格」映射回分组后的位置（append 落在末尾、中间编辑锚定插入点）。
+fracInputEl.addEventListener('input', () => {
+  const raw = fracInputEl.value;
+  const caret = fracInputEl.selectionStart ?? raw.length;
+  const st = fracInputState(raw, caret, currentFracDigits());
+  invalidateFracCache();
+  if (st.value === raw && st.caret === caret) return;
+  fracInputEl.value = st.value;
+  try { fracInputEl.setSelectionRange(st.caret, st.caret); } catch (e) {}
+});
 // frac 复制/剪切：视觉分组空格只用于显示，落剪贴板时剥成纯数字
 function onFracCopyLike(e, isCut) {
   const el = fracInputEl;

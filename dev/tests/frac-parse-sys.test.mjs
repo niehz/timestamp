@@ -19,7 +19,11 @@ test('frac 分组：stripFracSpaces / groupFracDigits 行为', () => {
   assert.equal(call('stripFracSpaces', '1,700 000\u00a0000\u200b7'), '17000000007');
   assert.equal(call('groupFracDigits', '123456789'), '123 456 789');
   assert.equal(call('groupFracDigits', '123 456 789'), '123 456 789');
-  assert.equal(call('groupFracDigits', '12345678'), '12 345 678');
+  // 左对齐分组：毫秒3+微秒3+纳秒3 的固定段结构
+  assert.equal(call('groupFracDigits', '12345'), '123 45');
+  assert.equal(call('groupFracDigits', '12345678'), '123 456 78');
+  assert.equal(call('groupFracDigits', '1234'), '123 4');
+  assert.equal(call('groupFracDigits', '123456'), '123 456');
   assert.equal(call('groupFracDigits', ''), '');
   assert.equal(call('groupFracDigits', '5'), '5');
 });
@@ -69,6 +73,16 @@ test('setFracDisplay：无截断原样；digits=0 清空（秒级）', () => {
   assert.equal(call('setFracDisplay', '123', 6), '123');
   assert.equal(call('setFracDisplay', '123', 9), '123');
   assert.equal(call('setFracDisplay', '123456789', 0), '');
+});
+
+test('fracInputState：分组空格下光标按数字边界映射，不再错位', () => {
+  const { call } = createFresh();
+  assert.deepEqual(call('fracInputState', '1234', 4, 6), { value: '123 4', caret: 5 });
+  assert.deepEqual(call('fracInputState', '123 45', 6, 6), { value: '123 45', caret: 6 });
+  assert.deepEqual(call('fracInputState', '123456', 4, 6), { value: '123 456', caret: 5 });
+  assert.deepEqual(call('fracInputState', '123456789', 9, 9), { value: '123 456 789', caret: 11 });
+  // 此前错乱路径：旧 4 号位在 '1 2354' 中落在 '3' 与 '5' 之间，映射后光标锚定在 '3' 之后
+  assert.deepEqual(call('fracInputState', '1 2354', 4, 6), { value: '123 54', caret: 3 });
 });
 
 test('readDateSelection：剥除 frac 组内空格后解析 ms/us/ns', () => {

@@ -166,7 +166,8 @@ function stripFracSpaces(str) {
 }
 function groupFracDigits(str) {
   const d = stripFracSpaces(str).replace(/\D/g, '').slice(0, 9);
-  return d.replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
+  // frac 是「毫秒3 + 微秒3 + 纳秒3」的固定段结构，分组从左侧每 3 位一断（如 123 45）
+  return d.replace(/(\d{3})(?=\d)/g, '$1 ');
 }
 function setFracValue(raw, digits) {
   invalidateFracCache();
@@ -216,6 +217,20 @@ function setFracDisplay(raw, digits) {
     }
   }
   return fracInputEl.value;
+}
+
+// frac 输入光标映射：raw=当前值，caret=旧光标下标，digits=当前位数
+// 返回分组显示值 + 光标在新值中的位置（append 落在末尾，中间编辑锚定插入点）。
+function fracInputState(raw, caret, digits) {
+  const n = digits || currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '').slice(0, n);
+  const value = groupFracDigits(d);
+  let k = 0;
+  for (const ch of String(raw).slice(0, caret)) if (ch >= '0' && ch <= '9') k++;
+  k = Math.min(k, d.length);
+  // 左对齐分组（每 3 位一断）：光标前每攒满 3 位数字就多 1 个分隔空格
+  const spaces = k > 0 ? Math.floor((k - 1) / 3) : 0;
+  return { value, caret: k + spaces };
 }
 
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
