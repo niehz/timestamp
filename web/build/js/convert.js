@@ -903,6 +903,7 @@ function updateFracInput() {
 
 function updatePrecisionIndicators() {
   const sysPrecision = SYS_SETTINGS.precision;
+  const hintKey = sysPrecision === 'sec' ? 'precisionHintSec' : sysPrecision === 'ms' ? 'precisionHintMs' : sysPrecision === 'us' ? 'precisionHintUs' : '';
   
   document.querySelectorAll('.tab').forEach((tabEl) => {
     const tab = tabEl.dataset.tab;
@@ -913,7 +914,12 @@ function updatePrecisionIndicators() {
       let showIndicator = false;
       let text = '';
       
-      if (sysPrecision === 'ms') {
+      if (sysPrecision === 'sec') {
+        if (tab === 'ms' || tab === 'us' || tab === 'ns') {
+          showIndicator = true;
+          text = t('tsUnitSec');
+        }
+      } else if (sysPrecision === 'ms') {
         if (tab === 'us' || tab === 'ns') {
           showIndicator = true;
           text = t('tsUnitMs');
@@ -928,8 +934,10 @@ function updatePrecisionIndicators() {
       if (showIndicator) {
         indicator.textContent = text;
         indicator.classList.add('show');
+        if (hintKey) tabEl.dataset.tip = t(hintKey);
       } else {
         indicator.classList.remove('show');
+        delete tabEl.dataset.tip;
       }
     }
   });
@@ -941,6 +949,7 @@ function switchTab(tab) {
   document.body.classList.toggle('tab-ms', tab === 'ms');
   document.body.classList.toggle('tab-us', tab === 'us');
   document.body.classList.toggle('tab-ns', tab === 'ns');
+  document.body.classList.toggle('prec-sec', !precisionGe('ms'));
   document.body.classList.toggle('prec-us', precisionGe('us'));
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
   

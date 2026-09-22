@@ -743,3 +743,36 @@ if (window.tsShell) {
     if (typeof initTimestampInput === 'function' && tsInput) { initTimestampInput(); tsInput.focus(); }
   });
 }
+
+// —— 精度徽标气泡：hover/focus 降级 TAB 时显示「受系统精度限制…」提示 ——
+// 提示文本由 updatePrecisionIndicators 写入各 .tab 的 data-tip；此处于源码底部已处于 DOM-ready。
+const precisionTipEl = document.getElementById('precision-tip');
+let precisionTipTimer = null;
+function showPrecisionTip(tabEl) {
+  const text = tabEl.dataset.tip;
+  if (!text || !precisionTipEl) return;
+  precisionTipEl.textContent = text;
+  precisionTipEl.classList.add('show');
+  const r = tabEl.getBoundingClientRect();
+  const tipW = precisionTipEl.offsetWidth || 180;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - tipW / 2, window.innerWidth - tipW - 8));
+  precisionTipEl.style.left = `${Math.round(left)}px`;
+  precisionTipEl.style.top = `${Math.round(r.bottom + 8)}px`;
+}
+function hidePrecisionTip() {
+  if (precisionTipEl) precisionTipEl.classList.remove('show');
+}
+document.querySelectorAll('.tab').forEach((tabEl) => {
+  tabEl.addEventListener('mouseenter', () => {
+    clearTimeout(precisionTipTimer);
+    precisionTipTimer = setTimeout(() => showPrecisionTip(tabEl), 60);
+  });
+  tabEl.addEventListener('mouseleave', () => {
+    clearTimeout(precisionTipTimer);
+    hidePrecisionTip();
+  });
+  tabEl.addEventListener('focus', () => showPrecisionTip(tabEl));
+  tabEl.addEventListener('blur', hidePrecisionTip);
+});
+window.addEventListener('resize', hidePrecisionTip);
+window.addEventListener('scroll', hidePrecisionTip, true);
