@@ -12,7 +12,7 @@ function reformatTimeInput() {
     const frac = parts[2] && parts[2].split('.')[1];
     if (frac) {
       const digits = currentFracDigits();
-      setFracValue(frac.padEnd(digits || 9, '0'), digits);
+      setFracDisplay(frac.padEnd(digits || 9, '0'), digits);
       parts[2] = parts[2].split('.')[0];
     }
     if (currentTab === 'us' && precisionGe('us')) {

@@ -108,6 +108,7 @@ function onFracCopyLike(e, isCut) {
   }
   if (isCut) {
     el.value = groupFracDigits(end > start ? el.value.slice(0, start) + el.value.slice(end) : '');
+    invalidateFracCache();
     renderConvert();
     syncClearBtns();
   }
@@ -263,6 +264,7 @@ if (btnDateClear) {
     dateInput.value = '';
     timeInputEl.value = '';
     fracInputEl.value = '';
+    invalidateFracCache();
     hideSuggestions();
     calendarEl.classList.remove('open');
     syncClearBtns();

@@ -32,6 +32,45 @@ test('frac 分组：setFracValue 补满位数并分组，messy 输入净化为�
   assert.equal(call('setFracValue', '123456789', 3), '123');
 });
 
+test('setFracDisplay：切低精度页截断写缓存，切回未编辑自动恢复完整值', () => {
+  const { call } = createFresh();
+  // ns→us：截断 + 缓存完整 9 位
+  assert.equal(call('setFracDisplay', '123456789', 6), '123 456');
+  // us→ns：期间未编辑 → 恢复
+  assert.equal(call('setFracDisplay', '123 456', 9), '123 456 789');
+});
+
+test('setFracDisplay：9→6→3→9 层级导航，始终保留最长全精度', () => {
+  const { call } = createFresh();
+  assert.equal(call('setFracDisplay', '123456789', 9), '123 456 789');
+  assert.equal(call('setFracDisplay', '123 456 789', 6), '123 456');
+  assert.equal(call('setFracDisplay', '123 456', 3), '123');
+  assert.equal(call('setFracDisplay', '123', 9), '123 456 789');
+});
+
+test('setFracDisplay：9→6→3→6→9 升回途中不清缓存，回到 9 位完整恢复', () => {
+  const { call } = createFresh();
+  assert.equal(call('setFracDisplay', '123456789', 6), '123 456');
+  assert.equal(call('setFracDisplay', '123 456', 3), '123');
+  // 3 升回 6：仍低于全精度，不恢复但缓存必须保留
+  assert.equal(call('setFracDisplay', '123', 6), '123');
+  // 6 升回 9：未编辑 → 恢复完整 9 位
+  assert.equal(call('setFracDisplay', '123', 9), '123 456 789');
+});
+
+test('setFracDisplay：低精度页已被编辑则不恢复、以新值为准', () => {
+  const { call } = createFresh();
+  assert.equal(call('setFracDisplay', '123456789', 6), '123 456');
+  assert.equal(call('setFracDisplay', '999 000', 9), '999 000');
+});
+
+test('setFracDisplay：无截断原样；digits=0 清空（秒级）', () => {
+  const { call } = createFresh();
+  assert.equal(call('setFracDisplay', '123', 6), '123');
+  assert.equal(call('setFracDisplay', '123', 9), '123');
+  assert.equal(call('setFracDisplay', '123456789', 0), '');
+});
+
 test('readDateSelection：剥除 frac 组内空格后解析 ms/us/ns', () => {
   const { call, expr } = createFresh();
   expr('currentTab = "ns"');
