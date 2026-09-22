@@ -891,14 +891,19 @@ function initDateFormatConfig() {
 function updateFracInput() {
   const digits = currentFracDigits();
   fracInputEl.style.display = digits > 0 ? '' : 'none';
-  fracInputEl.maxLength = digits || 9;
+  // 每 3 位一个小空挡（空格）分组，maxLength/size 计入分隔的空格数
+  const groups = digits > 0 ? Math.floor((digits - 1) / 3) : 0;
+  fracInputEl.maxLength = (digits || 9) + groups;
   fracInputEl.placeholder = t(digits === 9 ? 'fracPlaceholderNs' : digits === 6 ? 'fracPlaceholderUs' : digits ? 'fracPlaceholderMs' : '');
-  fracInputEl.size = Math.max(digits, 4);
-  if (digits && fracInputEl.value.length > digits) fracInputEl.value = fracInputEl.value.slice(0, digits);
+  fracInputEl.size = Math.max(digits + groups, 4);
+  if (!digits) return;
+  // 显示层按当前精度截断并分组；切到低精度页时缓存完整值，切回即恢复
+  setFracDisplay(fracInputEl.value, digits);
 }
 
 function updatePrecisionIndicators() {
   const sysPrecision = SYS_SETTINGS.precision;
+  const hintKey = sysPrecision === 'sec' ? 'precisionHintSec' : sysPrecision === 'ms' ? 'precisionHintMs' : sysPrecision === 'us' ? 'precisionHintUs' : '';
   
   document.querySelectorAll('.tab').forEach((tabEl) => {
     const tab = tabEl.dataset.tab;
@@ -909,7 +914,12 @@ function updatePrecisionIndicators() {
       let showIndicator = false;
       let text = '';
       
-      if (sysPrecision === 'ms') {
+      if (sysPrecision === 'sec') {
+        if (tab === 'ms' || tab === 'us' || tab === 'ns') {
+          showIndicator = true;
+          text = t('tsUnitSec');
+        }
+      } else if (sysPrecision === 'ms') {
         if (tab === 'us' || tab === 'ns') {
           showIndicator = true;
           text = t('tsUnitMs');
@@ -924,8 +934,10 @@ function updatePrecisionIndicators() {
       if (showIndicator) {
         indicator.textContent = text;
         indicator.classList.add('show');
+        if (hintKey) tabEl.dataset.tip = t(hintKey);
       } else {
         indicator.classList.remove('show');
+        delete tabEl.dataset.tip;
       }
     }
   });
@@ -937,6 +949,7 @@ function switchTab(tab) {
   document.body.classList.toggle('tab-ms', tab === 'ms');
   document.body.classList.toggle('tab-us', tab === 'us');
   document.body.classList.toggle('tab-ns', tab === 'ns');
+  document.body.classList.toggle('prec-sec', !precisionGe('ms'));
   document.body.classList.toggle('prec-us', precisionGe('us'));
   document.querySelectorAll('.tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
   

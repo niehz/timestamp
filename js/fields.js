@@ -159,10 +159,85 @@ function partsToFrac(ms, us, ns, digits) {
   return (seg(ms) + seg(us) + seg(ns)).slice(0, Math.min(digits || 9, 9));
 }
 
+// —— frac 输入框每 3 位分组显示 ——
+// 值内插入普通空格做视觉分组（如 123 456 789），所有读取端先剥空格再解析。
+function stripFracSpaces(str) {
+  return String(str == null ? '' : str).replace(/[\s,'\u00A0\u202F\u2009\u200B\u2060\uFEFF]/g, '');
+}
+function groupFracDigits(str) {
+  const d = stripFracSpaces(str).replace(/\D/g, '').slice(0, 9);
+  // frac 是「毫秒3 + 微秒3 + 纳秒3」的固定段结构，分组从左侧每 3 位一断（如 123 45）
+  return d.replace(/(\d{3})(?=\d)/g, '$1 ');
+}
+function setFracValue(raw, digits) {
+  invalidateFracCache();
+  const n = digits || currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '').slice(0, n);
+  fracInputEl.value = groupFracDigits(d);
+  return fracInputEl.value;
+}
+
+// —— frac 精度切换缓存 ——
+// 切换到低精度页时显示层截断，但把完整值缓存在内存；切回高精度页且期间未编辑则恢复，
+// 避免 ns→us→ns 导航造成纳秒位丢失。任何“新数据写入”都使缓存失效。
+let fracCache = '';
+let fracCachePrefix = '';
+
+function invalidateFracCache() {
+  fracCache = '';
+  fracCachePrefix = '';
+}
+
+// 按 digits 精度“显示层”写入 frac 输入框（含分组）；
+// 发生截断时缓存最长完整值；digits 回到 9 且当前值仍是缓存前缀（未被编辑）→ 恢复完整值。
+function setFracDisplay(raw, digits) {
+  const n = digits || currentFracDigits();
+  const full = stripFracSpaces(raw).replace(/\D/g, '').slice(0, 9);
+  if (!n || !full) {
+    fracInputEl.value = '';
+    invalidateFracCache();
+    return fracInputEl.value;
+  }
+  if (full.length > n) {
+    // 降级截断：保留完整值（跨层级保留最长全精度），写截断显示
+    if (fracCache.length < full.length) fracCache = full;
+    fracCachePrefix = full.slice(0, n);
+    fracInputEl.value = groupFracDigits(full.slice(0, n));
+  } else if (n >= 9 && fracCache && fracCachePrefix && full === fracCachePrefix) {
+    // 导航恢复：切回高精度页且期间未编辑，还原完整值
+    fracInputEl.value = groupFracDigits(fracCache);
+    invalidateFracCache();
+  } else {
+    // 未截断（可能正从更低级升回）：按当前值显示。
+    // 若当前值仍是缓存前缀的有效延续（纯导航、未编辑），保留缓存待高精度页恢复；
+    // 否则视为新数据，作废缓存。
+    fracInputEl.value = groupFracDigits(full);
+    if (!(fracCache && fracCachePrefix && full.length <= fracCachePrefix.length && fracCache.startsWith(full))) {
+      invalidateFracCache();
+    }
+  }
+  return fracInputEl.value;
+}
+
+// frac 输入光标映射：raw=当前值，caret=旧光标下标，digits=当前位数
+// 返回分组显示值 + 光标在新值中的位置（append 落在末尾，中间编辑锚定插入点）。
+function fracInputState(raw, caret, digits) {
+  const n = digits || currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '').slice(0, n);
+  const value = groupFracDigits(d);
+  let k = 0;
+  for (const ch of String(raw).slice(0, caret)) if (ch >= '0' && ch <= '9') k++;
+  k = Math.min(k, d.length);
+  // 左对齐分组（每 3 位一断）：光标前每攒满 3 位数字就多 1 个分隔空格
+  const spaces = k > 0 ? Math.floor((k - 1) / 3) : 0;
+  return { value, caret: k + spaces };
+}
+
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
+  invalidateFracCache();
   dateInput.value = `${formatYear(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
-  fracInputEl.value = partsToFrac(ms, us, ns, currentFracDigits());
+  fracInputEl.value = groupFracDigits(partsToFrac(ms, us, ns, currentFracDigits()));
   
   syncClearBtns();
 }
@@ -199,7 +274,7 @@ function applyDateOnly(str) {
 function readDateSelection() {
   const base = dateInput.value.trim();
   const timeText = timeInputEl.value.trim();
-  const fracText = fracInputEl.value.trim();
+  const fracText = stripFracSpaces(fracInputEl.value);
   if (!base && !timeText && !fracText) return { empty: true };
   if (!base) return { err: true };
   const parsed = parseDateEx(base);
@@ -216,7 +291,7 @@ function readDateSelection() {
     h = +tm[1]; mi = +tm[2]; se = tm[3] != null ? +tm[3] : 0;
     if (h > 23 || mi > 59 || se > 59) return { err: true };
     if (tm[4]) {
-      const p = fracToParts(tm[4], 9);
+      const p = fracToParts(stripFracSpaces(tm[4]), 9);
       msF = p.ms; usF = p.us; nsF = p.ns;
       hasFrac = true;
     }

@@ -5,6 +5,14 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+let enterPayloadHandled = false;
+if (window.utools) {
+  try {
+    utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
+    utools.setExpendHeight(560);
+  } catch (e) { try { console.error('[TimestampPlugin] register enter:', e); } catch (_) {} }
+}
+
 function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); if (window.tsShell) window.tsShell.setSettings({ uiLang: lang }); }
 
 function setAppLang(l) {
@@ -74,8 +82,49 @@ bindPasteFilter(calTimeInputEl, stripSeparators);
 bindInputFilter(calTimeInputEl, stripSeparators);
 bindPasteFilter(calYearInputEl, stripSeparators);
 bindInputFilter(calYearInputEl, stripSeparators);
-bindPasteFilter(fracInputEl, stripSeparators);
-bindInputFilter(fracInputEl, stripSeparators);
+// frac 输入：剥噪音后自动每 3 位分组显示（如 123 456 789），值内分隔空格由读取端剥除
+function cleanFracInput(raw) {
+  const digits = currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '');
+  return groupFracDigits(digits > 0 ? d.slice(0, digits) : d);
+}
+bindPasteFilter(fracInputEl, cleanFracInput);
+// frac 输入：分组空格会改变字符串长度，旧光标下标不能直接套用新值，
+// 需按「光标前保留数字 + 插入空格」映射回分组后的位置（append 落在末尾、中间编辑锚定插入点）。
+fracInputEl.addEventListener('input', () => {
+  const raw = fracInputEl.value;
+  const caret = fracInputEl.selectionStart ?? raw.length;
+  const st = fracInputState(raw, caret, currentFracDigits());
+  invalidateFracCache();
+  if (st.value === raw && st.caret === caret) return;
+  fracInputEl.value = st.value;
+  try { fracInputEl.setSelectionRange(st.caret, st.caret); } catch (e) {}
+});
+// frac 复制/剪切：视觉分组空格只用于显示，落剪贴板时剥成纯数字
+function onFracCopyLike(e, isCut) {
+  const el = fracInputEl;
+  const start = el.selectionStart != null ? el.selectionStart : 0;
+  const end = el.selectionEnd != null ? el.selectionEnd : start;
+  const sel = end > start ? el.value.substring(start, end) : el.value;
+  const plain = stripFracSpaces(sel);
+  if (e.clipboardData && typeof e.clipboardData.setData === 'function') {
+    e.clipboardData.setData('text/plain', plain);
+    e.preventDefault();
+  } else if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    e.preventDefault();
+    navigator.clipboard.writeText(plain);
+  } else {
+    return;
+  }
+  if (isCut) {
+    el.value = groupFracDigits(end > start ? el.value.slice(0, start) + el.value.slice(end) : '');
+    invalidateFracCache();
+    renderConvert();
+    syncClearBtns();
+  }
+}
+fracInputEl.addEventListener('copy', (e) => onFracCopyLike(e, false));
+fracInputEl.addEventListener('cut', (e) => onFracCopyLike(e, true));
 // 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
 const MAX_TS_LEN = 20;
 function cleanTsInput(raw) {
@@ -225,6 +274,7 @@ if (btnDateClear) {
     dateInput.value = '';
     timeInputEl.value = '';
     fracInputEl.value = '';
+    invalidateFracCache();
     hideSuggestions();
     calendarEl.classList.remove('open');
     syncClearBtns();
@@ -472,23 +522,34 @@ function initCsb() {
   });
 }
 
-initTzConfig();
-initSysConfig();
-initDateParseConfig();
-renderDateFormatList();
-applyLang();
-applyTheme();
-initThemeWatcher();
-switchTab(SYS_SETTINGS.defaultTab);
-updatePrecisionIndicators();
-updateNow();
-initTimestampInput();
-initCsb();
+try {
+  initTzConfig();
+  initSysConfig();
+  initDateParseConfig();
+  renderDateFormatList();
+  applyLang();
+  applyTheme();
+  initThemeWatcher();
+  switchTab(SYS_SETTINGS.defaultTab);
+  updatePrecisionIndicators();
+  updateNow();
+  initTimestampInput();
+  initCsb();
+} catch (err) {
+  try { console.error('[TimestampPlugin] init:', err); } catch (_) {}
+}
 
 // 进入载荷归一化（纯函数，供 onPluginEnter / 桌面 URL payload 共用）：
 // 数字（含负号/千分位/空格噪音）→ ts；可解析日期 → date；否则 clipboard 兜底。
 function normalizeEnterPayload(payload) {
-  let p = String(payload == null ? '' : payload).trim();
+  let p = '';
+  if (Array.isArray(payload)) {
+    const items = payload.map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+    const pick = items.find(s => /^\d+([\s,'\u00A0\u202F]\d+)*$/.test(s) || /^-\d+([\s,'\u00A0\u202F]\d+)*$/.test(s) || parseDateEx(s));
+    p = (pick || items.join('')).trim();
+  } else {
+    p = String(payload == null ? '' : payload).trim();
+  }
   if (!p) return { kind: 'empty' };
   const pre = p.match(/^(?:ts|时间戳|timestamp|date|日期|时间|秒|毫秒|微秒|纳秒)\s*[:：]?\s*(.+)$/i);
   if (pre) p = pre[1].trim();
@@ -516,17 +577,25 @@ function normalizeEnterPayload(payload) {
 }
 
 function handleEnterPayload(payload) {
+  enterPayloadHandled = false;
   const r = normalizeEnterPayload(payload);
   if (r.kind === 'empty') { initTimestampInput(); tsInput.focus(); return; }
   if (r.kind === 'ts') {
+    enterPayloadHandled = true;
     tsInput.value = r.value;
-    if (r.tab) switchTab(r.tab);
+    if (r.tab) {
+      switchTab(r.tab);
+      if (r.tab !== 'sec') ensurePrecisionForPayload(r.tab);
+    }
     renderReverse();
     tsInput.focus();
     return;
   }
   if (r.kind === 'date') {
+    enterPayloadHandled = true;
     applyParsedToFields(r.parts);
+    const lv = fracGranularity(r.parts);
+    if (lv) ensurePrecisionForPayload(lv);
     timeInputEl.focus();
     renderConvert();
     return;
@@ -535,10 +604,23 @@ function handleEnterPayload(payload) {
   tsInput.focus();
 }
 
-if (window.utools) {
-  utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
-  try { utools.setExpendHeight(560); } catch (e) {}
+// 载荷含亚秒时，自动把「精度显示 + TAB」提升到对应级（ms/us/ns），
+// 保证毫秒/微秒/纳秒的输入框与结果立即可见、可完整回填。
+function ensurePrecisionForPayload(level) {
+  if (!PRECISION_ORDER[level]) return;
+  if (PRECISION_ORDER[SYS_SETTINGS.precision] < PRECISION_ORDER[level]) {
+    applySysField('sys-precision', level);
+  }
+  if (PRECISION_ORDER[currentTab] < PRECISION_ORDER[level]) switchTab(level);
 }
+function fracGranularity(pe) {
+  if (!pe || pe.mode !== 'parts') return null;
+  if (pe.ns) return 'ns';
+  if (pe.us) return 'us';
+  if (pe.ms) return 'ms';
+  return null;
+}
+
 // 桌面壳 / 浏览器直开：解析 URL ?payload= / ?ts=（Electron main.js 经 --payload= 传入；
 // 真 uTools 环境无 tsShell 且 payload 走 onPluginEnter，跳过避免重复填充）
 ;(function () {
@@ -661,3 +743,36 @@ if (window.tsShell) {
     if (typeof initTimestampInput === 'function' && tsInput) { initTimestampInput(); tsInput.focus(); }
   });
 }
+
+// —— 精度徽标气泡：hover/focus 降级 TAB 时显示「受系统精度限制…」提示 ——
+// 提示文本由 updatePrecisionIndicators 写入各 .tab 的 data-tip；此处于源码底部已处于 DOM-ready。
+const precisionTipEl = document.getElementById('precision-tip');
+let precisionTipTimer = null;
+function showPrecisionTip(tabEl) {
+  const text = tabEl.dataset.tip;
+  if (!text || !precisionTipEl) return;
+  precisionTipEl.textContent = text;
+  precisionTipEl.classList.add('show');
+  const r = tabEl.getBoundingClientRect();
+  const tipW = precisionTipEl.offsetWidth || 180;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - tipW / 2, window.innerWidth - tipW - 8));
+  precisionTipEl.style.left = `${Math.round(left)}px`;
+  precisionTipEl.style.top = `${Math.round(r.bottom + 8)}px`;
+}
+function hidePrecisionTip() {
+  if (precisionTipEl) precisionTipEl.classList.remove('show');
+}
+document.querySelectorAll('.tab').forEach((tabEl) => {
+  tabEl.addEventListener('mouseenter', () => {
+    clearTimeout(precisionTipTimer);
+    precisionTipTimer = setTimeout(() => showPrecisionTip(tabEl), 60);
+  });
+  tabEl.addEventListener('mouseleave', () => {
+    clearTimeout(precisionTipTimer);
+    hidePrecisionTip();
+  });
+  tabEl.addEventListener('focus', () => showPrecisionTip(tabEl));
+  tabEl.addEventListener('blur', hidePrecisionTip);
+});
+window.addEventListener('resize', hidePrecisionTip);
+window.addEventListener('scroll', hidePrecisionTip, true);

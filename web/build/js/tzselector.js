@@ -12,14 +12,14 @@ function reformatTimeInput() {
     const frac = parts[2] && parts[2].split('.')[1];
     if (frac) {
       const digits = currentFracDigits();
-      fracInputEl.value = frac.padEnd(digits || 9, '0').slice(0, digits || 9);
+      setFracDisplay(frac.padEnd(digits || 9, '0'), digits);
       parts[2] = parts[2].split('.')[0];
     }
     if (currentTab === 'us' && precisionGe('us')) {
-      if (!fracInputEl.value.trim()) fracInputEl.value = '000000';
+      if (!stripFracSpaces(fracInputEl.value)) setFracValue('000000', 6);
     } else if (currentTab === 'ns') {
-      if (precisionGe('ns') && !fracInputEl.value.trim()) fracInputEl.value = '000000000';
-      else if (precisionGe('us') && !fracInputEl.value.trim()) fracInputEl.value = '000000';
+      if (precisionGe('ns') && !stripFracSpaces(fracInputEl.value)) setFracValue('000000000', 9);
+      else if (precisionGe('us') && !stripFracSpaces(fracInputEl.value)) setFracValue('000000', 6);
     }
     timeInputEl.value = `${parts[0]}:${parts[1]}${parts[2] ? ':' + parts[2] : ''}`;
   }
@@ -46,6 +46,7 @@ async function initTimestampInput() {
     else readFailed = true;
   } catch (e) { readFailed = true; }
   if (readFailed && !window.utools) toast(t('clipboardFail'));
+  if (enterPayloadHandled) return;
   if (/^-?\d+$/.test(text)) {
     tsInput.value = text;
     const digits = text.replace(/^-/, '');

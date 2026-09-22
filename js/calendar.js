@@ -281,7 +281,7 @@ function openCalendar() {
         calTime.ms = +f.slice(0, 3); calTime.us = +f.slice(3, 6); calTime.ns = +f.slice(6, 9);
       }
     }
-    const fT = fracInputEl.value.trim();
+    const fT = stripFracSpaces(fracInputEl.value);
     if (/^\d{1,9}$/.test(fT)) {
       const p = fracToParts(fT, 9);
       calTime.ms = p.ms; calTime.us = p.us; calTime.ns = p.ns;

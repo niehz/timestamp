@@ -68,6 +68,8 @@ html,body{height:100%;overflow:hidden}
 .tab .tab-text{flex:1}
 .tab .precision-indicator{position:absolute;top:2px;right:4px;font-size:10px;font-weight:400;color:var(--accent);background:var(--accent-soft);padding:1px 4px;border-radius:4px;opacity:0;transition:opacity .15s}
 .tab .precision-indicator.show{opacity:1}
+.precision-tip{position:fixed;z-index:9999;pointer-events:none;background:var(--panel);border:1px solid var(--border);color:var(--text);font-size:12px;line-height:1.5;padding:6px 10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.18);opacity:0;transform:translateY(2px);transition:opacity .12s,transform .12s;max-width:280px;white-space:normal}
+.precision-tip.show{opacity:1;transform:translateY(0)}
 .tab:hover{color:var(--text)}
 .tab.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(91,154,255,0.3)}
 .header-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
@@ -176,10 +178,12 @@ body.tab-ns.prec-us #card-d2t .result-value{font-size:18px;white-space:nowrap;wo
 body.tab-sec #time-input{width:105px;padding:8px 20px 8px 0 !important}
 /* 毫秒级/微秒级/纳秒级 TAB 页 - time-input 左右 0px，总宽度 85px */
 body.tab-ms #time-input,body.tab-us #time-input,body.tab-ns #time-input{padding:8px 0}
+/* 精度=秒级时 frac 输入框隐藏：ms/us/ns TAB 沿用秒级右侧留白，清空按钮保持在输入框右侧 */
+body.prec-sec.tab-ms #time-input,body.prec-sec.tab-us #time-input,body.prec-sec.tab-ns #time-input{width:105px;padding:8px 20px 8px 0 !important}
 /* 毫秒级 TAB 页 - frac-input 右侧 20px，数据区 30px */
 body.tab-ms #frac-input{width:50px;padding-right:20px}
-/* 微秒级 TAB 页 - frac-input 右侧 20px，数据区 60px */
-body.tab-us #frac-input{width:80px;padding-right:20px}
+/* 微秒级 TAB 页 - frac-input 右侧 20px，数据区 70px（容纳 6 位数+分组空格） */
+body.tab-us #frac-input{width:90px;padding-right:20px}
 /* 纳秒级 TAB 页 - frac-input 右侧 20px，数据区 110px */
 body.tab-ns #frac-input{width:130px;padding-right:20px}
 #date-input{min-width:0}
