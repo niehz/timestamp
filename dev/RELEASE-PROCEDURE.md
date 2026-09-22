@@ -123,11 +123,11 @@
 
 ## 9. 收尾
 
-1. **main 回流**：把发布分支上的「版本号 + store + 文档」提交合并回 `main`，避免版本号在两条线漂移：
+1. **main 回流**：把发布分支上的「版本号 + store + 文档」提交合并回 `main`，避免版本号在两条线漂移。main 是保护分支，**只能走 PR**：
    ```powershell
-   git checkout main
-   git merge v1.0.4
-   git push origin main
+   # 发布分支已推送的前提下
+   gh pr create --base main --head v1.0.4 --title "chore(release): v1.0.4 回流 main" --body ...
+   gh pr merge <编号> --squash
    ```
 2. 本地切回日常工作分支；可顺手更新宣传物料（如 `公众号宣传稿.md`）。
 
@@ -155,6 +155,7 @@ git push origin v1.0.4; git tag v1.0.4; git push origin v1.0.4
 gh release create v1.0.4 --title "v1.0.4 正式版" --notes-file store/v1.0.4/release-notes.md
 gh release upload v1.0.4 dist/timestamp-toolkit-v1.0.4.zip
 # §8 商店上传 dist/utools → 实机验证
-# §9 main 回流
-git checkout main; git merge v1.0.4; git push origin main
+# §9 main 回流（main 为保护分支，只收 PR）
+gh pr create --base main --head v1.0.4 --title "chore(release): v1.0.4 回流 main"
+gh pr merge <编号> --squash
 ```
