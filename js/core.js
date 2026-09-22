@@ -51,7 +51,7 @@ function loadSysSettings() {
   } catch (e) {}
   if (typeof s !== 'object' || s === null) s = {};
   if (s.precision == null) {
-    s.precision = s.showNs ? 'ns' : s.showUs ? 'us' : s.showMs ? 'ms' : 'sec';
+    s.precision = s.showNs ? 'ns' : s.showUs ? 'us' : s.showMs ? 'ms' : SYS_DEFAULTS.precision;
   }
   delete s.showMs; delete s.showUs; delete s.showNs;
   s = { ...SYS_DEFAULTS, ...s };

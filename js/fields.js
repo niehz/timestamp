@@ -159,10 +159,26 @@ function partsToFrac(ms, us, ns, digits) {
   return (seg(ms) + seg(us) + seg(ns)).slice(0, Math.min(digits || 9, 9));
 }
 
+// —— frac 输入框每 3 位分组显示 ——
+// 值内插入普通空格做视觉分组（如 123 456 789），所有读取端先剥空格再解析。
+function stripFracSpaces(str) {
+  return String(str == null ? '' : str).replace(/[\s,'\u00A0\u202F\u2009\u200B\u2060\uFEFF]/g, '');
+}
+function groupFracDigits(str) {
+  const d = stripFracSpaces(str).replace(/\D/g, '').slice(0, 9);
+  return d.replace(/(\d)(?=(\d{3})+$)/g, '$1 ');
+}
+function setFracValue(raw, digits) {
+  const n = digits || currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '').slice(0, n);
+  fracInputEl.value = groupFracDigits(d);
+  return fracInputEl.value;
+}
+
 function setDateFields(y, mo, d, h, mi, se, ms, us, ns) {
   dateInput.value = `${formatYear(y)}-${pad(mo)}-${pad(d)}`;
   timeInputEl.value = `${pad(h)}:${pad(mi)}:${pad(se)}`;
-  fracInputEl.value = partsToFrac(ms, us, ns, currentFracDigits());
+  fracInputEl.value = groupFracDigits(partsToFrac(ms, us, ns, currentFracDigits()));
   
   syncClearBtns();
 }
@@ -199,7 +215,7 @@ function applyDateOnly(str) {
 function readDateSelection() {
   const base = dateInput.value.trim();
   const timeText = timeInputEl.value.trim();
-  const fracText = fracInputEl.value.trim();
+  const fracText = stripFracSpaces(fracInputEl.value);
   if (!base && !timeText && !fracText) return { empty: true };
   if (!base) return { err: true };
   const parsed = parseDateEx(base);
@@ -216,7 +232,7 @@ function readDateSelection() {
     h = +tm[1]; mi = +tm[2]; se = tm[3] != null ? +tm[3] : 0;
     if (h > 23 || mi > 59 || se > 59) return { err: true };
     if (tm[4]) {
-      const p = fracToParts(tm[4], 9);
+      const p = fracToParts(stripFracSpaces(tm[4]), 9);
       msF = p.ms; usF = p.us; nsF = p.ns;
       hasFrac = true;
     }

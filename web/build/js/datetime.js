@@ -448,6 +448,27 @@ function parseIsoFmt(s) {
     return null;
   }
   if (explicit) {
+    // 带 - 或 / 分隔的 ISO + 显式时区：走 parts 模式，完整保留 9 位小数秒
+    //（Date.parse 只保留前 3 位毫秒，微秒/纳秒会被丢掉）。GMT/UTC 命名区一并映射到 UTC。
+    const d = s.match(/^(-?\d{4,6})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d{1,9}))?)?\s*(Z|[+-]\d{2}:?\d{2}|GMT|UTC)?)?$/i);
+    if (d && d[4] != null) {
+      const y = +d[1], mo = +d[2], da = +d[3];
+      const h = +d[4], mi = +d[5], se = d[6] != null ? +d[6] : 0;
+      if (!validYmd(y, mo, da) || h > 23 || mi > 59 || se > 59) return null;
+      const fr = fracSplit(d[7]);
+      const out = { mode: 'parts', y, mo, d: da, h, mi, s: se, ms: fr.ms, us: fr.us, ns: fr.ns };
+      const zone = d[8];
+      if (zone) {
+        if (/^z$/i.test(zone) || /^(?:GMT|UTC)$/i.test(zone)) {
+          out.tz = { label: 'UTC', value: 'UTC', offset: 0 };
+        } else {
+          const om = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
+          if (om) out.tz = { label: `${om[1]}${om[2]}:${om[3]}`, offset: (+om[2] * 60 + +om[3]) * (om[1] === '-' ? -1 : 1), value: `FIXED:${om[1]}${om[2]}${om[3]}` };
+          else return null;
+        }
+      }
+      return out;
+    }
     const abs = Date.parse(s);
     if (Number.isNaN(abs)) return null;
     return { mode: 'abs', abs, tz: tzInfo };

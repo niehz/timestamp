@@ -5,6 +5,14 @@
 // core → datetime → fields → calendar → convert → tzselector → events
 // ========================================================
 
+let enterPayloadHandled = false;
+if (window.utools) {
+  try {
+    utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
+    utools.setExpendHeight(560);
+  } catch (e) { try { console.error('[TimestampPlugin] register enter:', e); } catch (_) {} }
+}
+
 function toggleLang() { lang = lang === 'zh' ? 'en' : 'zh'; applyLang(); renderConvert(); renderReverse(); if (window.tsShell) window.tsShell.setSettings({ uiLang: lang }); }
 
 function setAppLang(l) {
@@ -74,8 +82,38 @@ bindPasteFilter(calTimeInputEl, stripSeparators);
 bindInputFilter(calTimeInputEl, stripSeparators);
 bindPasteFilter(calYearInputEl, stripSeparators);
 bindInputFilter(calYearInputEl, stripSeparators);
-bindPasteFilter(fracInputEl, stripSeparators);
-bindInputFilter(fracInputEl, stripSeparators);
+// frac 输入：剥噪音后自动每 3 位分组显示（如 123 456 789），值内分隔空格由读取端剥除
+function cleanFracInput(raw) {
+  const digits = currentFracDigits();
+  const d = stripFracSpaces(raw).replace(/\D/g, '');
+  return groupFracDigits(digits > 0 ? d.slice(0, digits) : d);
+}
+bindPasteFilter(fracInputEl, cleanFracInput);
+bindInputFilter(fracInputEl, cleanFracInput);
+// frac 复制/剪切：视觉分组空格只用于显示，落剪贴板时剥成纯数字
+function onFracCopyLike(e, isCut) {
+  const el = fracInputEl;
+  const start = el.selectionStart != null ? el.selectionStart : 0;
+  const end = el.selectionEnd != null ? el.selectionEnd : start;
+  const sel = end > start ? el.value.substring(start, end) : el.value;
+  const plain = stripFracSpaces(sel);
+  if (e.clipboardData && typeof e.clipboardData.setData === 'function') {
+    e.clipboardData.setData('text/plain', plain);
+    e.preventDefault();
+  } else if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    e.preventDefault();
+    navigator.clipboard.writeText(plain);
+  } else {
+    return;
+  }
+  if (isCut) {
+    el.value = groupFracDigits(end > start ? el.value.slice(0, start) + el.value.slice(end) : '');
+    renderConvert();
+    syncClearBtns();
+  }
+}
+fracInputEl.addEventListener('copy', (e) => onFracCopyLike(e, false));
+fracInputEl.addEventListener('cut', (e) => onFracCopyLike(e, true));
 // 时间戳输入上限：符号 + 最多 19 位纳秒（超长无合法含义，截断并提示）
 const MAX_TS_LEN = 20;
 function cleanTsInput(raw) {
@@ -472,23 +510,34 @@ function initCsb() {
   });
 }
 
-initTzConfig();
-initSysConfig();
-initDateParseConfig();
-renderDateFormatList();
-applyLang();
-applyTheme();
-initThemeWatcher();
-switchTab(SYS_SETTINGS.defaultTab);
-updatePrecisionIndicators();
-updateNow();
-initTimestampInput();
-initCsb();
+try {
+  initTzConfig();
+  initSysConfig();
+  initDateParseConfig();
+  renderDateFormatList();
+  applyLang();
+  applyTheme();
+  initThemeWatcher();
+  switchTab(SYS_SETTINGS.defaultTab);
+  updatePrecisionIndicators();
+  updateNow();
+  initTimestampInput();
+  initCsb();
+} catch (err) {
+  try { console.error('[TimestampPlugin] init:', err); } catch (_) {}
+}
 
 // 进入载荷归一化（纯函数，供 onPluginEnter / 桌面 URL payload 共用）：
 // 数字（含负号/千分位/空格噪音）→ ts；可解析日期 → date；否则 clipboard 兜底。
 function normalizeEnterPayload(payload) {
-  let p = String(payload == null ? '' : payload).trim();
+  let p = '';
+  if (Array.isArray(payload)) {
+    const items = payload.map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+    const pick = items.find(s => /^\d+([\s,'\u00A0\u202F]\d+)*$/.test(s) || /^-\d+([\s,'\u00A0\u202F]\d+)*$/.test(s) || parseDateEx(s));
+    p = (pick || items.join('')).trim();
+  } else {
+    p = String(payload == null ? '' : payload).trim();
+  }
   if (!p) return { kind: 'empty' };
   const pre = p.match(/^(?:ts|时间戳|timestamp|date|日期|时间|秒|毫秒|微秒|纳秒)\s*[:：]?\s*(.+)$/i);
   if (pre) p = pre[1].trim();
@@ -516,17 +565,25 @@ function normalizeEnterPayload(payload) {
 }
 
 function handleEnterPayload(payload) {
+  enterPayloadHandled = false;
   const r = normalizeEnterPayload(payload);
   if (r.kind === 'empty') { initTimestampInput(); tsInput.focus(); return; }
   if (r.kind === 'ts') {
+    enterPayloadHandled = true;
     tsInput.value = r.value;
-    if (r.tab) switchTab(r.tab);
+    if (r.tab) {
+      switchTab(r.tab);
+      if (r.tab !== 'sec') ensurePrecisionForPayload(r.tab);
+    }
     renderReverse();
     tsInput.focus();
     return;
   }
   if (r.kind === 'date') {
+    enterPayloadHandled = true;
     applyParsedToFields(r.parts);
+    const lv = fracGranularity(r.parts);
+    if (lv) ensurePrecisionForPayload(lv);
     timeInputEl.focus();
     renderConvert();
     return;
@@ -535,10 +592,23 @@ function handleEnterPayload(payload) {
   tsInput.focus();
 }
 
-if (window.utools) {
-  utools.onPluginEnter(({ payload }) => handleEnterPayload(payload));
-  try { utools.setExpendHeight(560); } catch (e) {}
+// 载荷含亚秒时，自动把「精度显示 + TAB」提升到对应级（ms/us/ns），
+// 保证毫秒/微秒/纳秒的输入框与结果立即可见、可完整回填。
+function ensurePrecisionForPayload(level) {
+  if (!PRECISION_ORDER[level]) return;
+  if (PRECISION_ORDER[SYS_SETTINGS.precision] < PRECISION_ORDER[level]) {
+    applySysField('sys-precision', level);
+  }
+  if (PRECISION_ORDER[currentTab] < PRECISION_ORDER[level]) switchTab(level);
 }
+function fracGranularity(pe) {
+  if (!pe || pe.mode !== 'parts') return null;
+  if (pe.ns) return 'ns';
+  if (pe.us) return 'us';
+  if (pe.ms) return 'ms';
+  return null;
+}
+
 // 桌面壳 / 浏览器直开：解析 URL ?payload= / ?ts=（Electron main.js 经 --payload= 传入；
 // 真 uTools 环境无 tsShell 且 payload 走 onPluginEnter，跳过避免重复填充）
 ;(function () {

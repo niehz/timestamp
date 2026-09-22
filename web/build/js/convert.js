@@ -891,10 +891,14 @@ function initDateFormatConfig() {
 function updateFracInput() {
   const digits = currentFracDigits();
   fracInputEl.style.display = digits > 0 ? '' : 'none';
-  fracInputEl.maxLength = digits || 9;
+  // 每 3 位一个小空挡（空格）分组，maxLength/size 计入分隔的空格数
+  const groups = digits > 0 ? Math.floor((digits - 1) / 3) : 0;
+  fracInputEl.maxLength = (digits || 9) + groups;
   fracInputEl.placeholder = t(digits === 9 ? 'fracPlaceholderNs' : digits === 6 ? 'fracPlaceholderUs' : digits ? 'fracPlaceholderMs' : '');
-  fracInputEl.size = Math.max(digits, 4);
-  if (digits && fracInputEl.value.length > digits) fracInputEl.value = fracInputEl.value.slice(0, digits);
+  fracInputEl.size = Math.max(digits + groups, 4);
+  if (digits && stripFracSpaces(fracInputEl.value).length > digits) {
+    fracInputEl.value = groupFracDigits(stripFracSpaces(fracInputEl.value).slice(0, digits));
+  }
 }
 
 function updatePrecisionIndicators() {
