@@ -182,8 +182,8 @@ body.tab-ms #time-input,body.tab-us #time-input,body.tab-ns #time-input{padding:
 body.prec-sec.tab-ms #time-input,body.prec-sec.tab-us #time-input,body.prec-sec.tab-ns #time-input{width:105px;padding:8px 20px 8px 0 !important}
 /* 毫秒级 TAB 页 - frac-input 右侧 20px，数据区 30px */
 body.tab-ms #frac-input{width:50px;padding-right:20px}
-/* 微秒级 TAB 页 - frac-input 右侧 20px，数据区 60px */
-body.tab-us #frac-input{width:80px;padding-right:20px}
+/* 微秒级 TAB 页 - frac-input 右侧 20px，数据区 70px（容纳 6 位数+分组空格） */
+body.tab-us #frac-input{width:90px;padding-right:20px}
 /* 纳秒级 TAB 页 - frac-input 右侧 20px，数据区 110px */
 body.tab-ns #frac-input{width:130px;padding-right:20px}
 #date-input{min-width:0}
